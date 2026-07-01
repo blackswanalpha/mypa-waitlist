@@ -1,0 +1,1 @@
+MyPA launch landing page and early-access waitlist. A standalone Next.js 16 + Convex app with waitlist, feedback, and contact forms, plus an allowlisted admin dashboard to monitor submissions live. Isolated Convex backend, Convex Auth, Resend email, shadcn/ui, GSAP animations.
