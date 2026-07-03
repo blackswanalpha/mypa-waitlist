@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "next lint",
     "convex": "convex dev",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/docker-smoke.mjs"
   },
   "dependencies": {
     "@auth/core": "0.41.1",
     "@convex-dev/auth": "^0.0.94",
+    "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/resend": "^0.2.5",
     "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^3.10.0",

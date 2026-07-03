@@ -10,12 +10,18 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 const DEFAULT_PAGE_SIZE = 25;
 
-type TableState = { pageIndex: number; pageSize: number };
+type TableState = {
+  pageIndex: number;
+  pageSize: number;
+  /** Optional server-side filter (waitlist status chips). */
+  statusFilter?: string;
+};
 
 type Store = {
   tables: Record<AdminTableKey, TableState>;
   setPageIndex: (key: AdminTableKey, pageIndex: number) => void;
   setPageSize: (key: AdminTableKey, pageSize: number) => void;
+  setStatusFilter: (key: AdminTableKey, statusFilter?: string) => void;
 };
 
 /**
@@ -38,7 +44,16 @@ export const useAdminTableStore = create<Store>((set) => ({
     })),
   setPageSize: (key, pageSize) =>
     set((s) => ({
-      tables: { ...s.tables, [key]: { pageSize, pageIndex: 0 } },
+      tables: { ...s.tables, [key]: { ...s.tables[key], pageSize, pageIndex: 0 } },
+    })),
+  // Changing the filter goes back to page 1 — the old offset is meaningless
+  // against a different result set.
+  setStatusFilter: (key, statusFilter) =>
+    set((s) => ({
+      tables: {
+        ...s.tables,
+        [key]: { ...s.tables[key], statusFilter, pageIndex: 0 },
+      },
     })),
 }));
 
@@ -47,10 +62,13 @@ export function useAdminTable(key: AdminTableKey) {
   const state = useAdminTableStore((s) => s.tables[key]);
   const setPageIndex = useAdminTableStore((s) => s.setPageIndex);
   const setPageSize = useAdminTableStore((s) => s.setPageSize);
+  const setStatusFilter = useAdminTableStore((s) => s.setStatusFilter);
   return {
     pageIndex: state.pageIndex,
     pageSize: state.pageSize,
+    statusFilter: state.statusFilter,
     setPageIndex: (i: number) => setPageIndex(key, i),
     setPageSize: (n: number) => setPageSize(key, n),
+    setStatusFilter: (f?: string) => setStatusFilter(key, f),
   };
 }

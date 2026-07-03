@@ -22,14 +22,24 @@ export function Hero() {
         (ctx) => {
           if (ctx.conditions?.reduce) return; // leave everything in place
 
+          // set + to, not `.from()`: a re-run of this effect (StrictMode,
+          // Fast Refresh) would let from-tweens capture the hidden state as
+          // their destination and the hero would never appear. See reveal.tsx.
+          gsap.set(".hero-pill", { y: -12, autoAlpha: 0 });
+          gsap.set(".hero-title", { y: 24, autoAlpha: 0 });
+          gsap.set(".hero-sub", { y: 20, autoAlpha: 0 });
+          gsap.set(".hero-cta", { y: 16, autoAlpha: 0 });
+          gsap.set(".hero-note", { autoAlpha: 0 });
+          gsap.set(".hero-art", { y: 28, autoAlpha: 0 });
+          const show = { y: 0, autoAlpha: 1, overwrite: "auto" } as const;
           gsap
             .timeline({ defaults: { ease: "power3.out", duration: 0.7 } })
-            .from(".hero-pill", { y: -12, autoAlpha: 0, duration: 0.5 })
-            .from(".hero-title", { y: 24, autoAlpha: 0 }, "-=0.2")
-            .from(".hero-sub", { y: 20, autoAlpha: 0 }, "-=0.45")
-            .from(".hero-cta", { y: 16, autoAlpha: 0 }, "-=0.45")
-            .from(".hero-note", { autoAlpha: 0, duration: 0.5 }, "-=0.35")
-            .from(".hero-art", { y: 28, autoAlpha: 0, duration: 0.9 }, "-=0.3");
+            .to(".hero-pill", { ...show, duration: 0.5 })
+            .to(".hero-title", { ...show }, "-=0.2")
+            .to(".hero-sub", { ...show }, "-=0.45")
+            .to(".hero-cta", { ...show }, "-=0.45")
+            .to(".hero-note", { ...show, duration: 0.5 }, "-=0.35")
+            .to(".hero-art", { ...show, duration: 0.9 }, "-=0.3");
 
           // Scroll-scrubbed parallax on the brand glow.
           gsap.to(".hero-glow", {
@@ -62,7 +72,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-3xl text-center">
         <div className="hero-pill mb-8 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 font-mono text-xs uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75 motion-reduce:animate-none" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-fern" />
           </span>
           Early access · now accepting signups
@@ -96,7 +106,7 @@ export function Hero() {
           </Button>
         </div>
 
-        <p className="hero-note mt-6 font-mono text-xs uppercase tracking-widest text-muted-foreground/70">
+        <p className="hero-note mt-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
           No spam · Get whitelisted for launch
         </p>
 

@@ -64,9 +64,23 @@ npm run dev    # http://localhost:3000  (keep `npx convex dev` running too)
 
 ## 5. Seed the admin account
 
+Account creation is **disabled by default** (`ALLOW_ADMIN_SIGNUP` unset) so
+nobody can register an allowlisted address before you do. Bootstrap once:
+
+```bash
+npx convex env set ALLOW_ADMIN_SIGNUP "true"
+```
+
 Go to `http://localhost:3000/admin` → click **"First time? Create the admin
-account"** → sign up with an email that is in `ADMIN_EMAILS` + a password. Only
-allowlisted emails can create an account or sign in. After that, use **Sign in**.
+account"** → sign up with an email that is in `ADMIN_EMAILS` + a password. Then
+lock sign-up again:
+
+```bash
+npx convex env remove ALLOW_ADMIN_SIGNUP
+```
+
+Sign-in keeps working with the flag unset. Only allowlisted emails can ever
+create an account or sign in.
 
 ## 6. Verify end-to-end
 
@@ -84,6 +98,34 @@ allowlisted emails can create an account or sign in. After that, use **Sign in**
 > address — the admin-notify will arrive, an arbitrary signer's confirmation
 > won't. That's expected; flip `RESEND_TEST_MODE=false` with a verified domain
 > for real delivery.
+
+## 6b. Whitelisting & backend sync
+
+The admin **Waitlist** tab manages launch access ("invited" status = shown as
+**Whitelisted**):
+
+- Select rows → **Whitelist selected** (or **Whitelist all pending** — loops
+  200 rows per transaction until done). **Mark pending** reverses.
+- **CSV** exports the current status filter (all columns, RFC-4180 quoted).
+- **Sync to backend** pushes whitelisted rows to the product backend's
+  `POST /api/v1/waitlist-sync/import` in 200-row batches; successful batches
+  are stamped `syncedAt` (green check in the table), so a mid-run failure never
+  loses progress. Configure once:
+
+```bash
+npx convex env set BACKEND_URL "https://backend.mypa.computer"
+npx convex env set BACKEND_SERVICE_KEY "<same value as the backend's CONVEX_SERVICE_KEY>"
+```
+
+At launch, flip `SIGNUP_WHITELIST_REQUIRED=true` on the backend — signup then
+only accepts whitelisted emails, and each signup marks its whitelist row
+claimed.
+
+One-time after upgrading to the counters schema (seeds the dashboard stats):
+
+```bash
+npx convex run counters:backfill
+```
 
 ## 7. Deploy (Vercel)
 

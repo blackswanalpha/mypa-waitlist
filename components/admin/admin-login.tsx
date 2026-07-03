@@ -21,11 +21,13 @@ export function AdminLogin() {
   const { signIn } = useAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setSubmitting(true);
+    setError(null);
     try {
       await signIn("password", {
         email: String(fd.get("email") ?? ""),
@@ -34,11 +36,12 @@ export function AdminLogin() {
       });
       // On success the provider updates auth state and the page re-renders.
     } catch {
-      toast.error(
+      const message =
         flow === "signIn"
           ? "Invalid credentials, or this email isn't an admin."
-          : "Couldn't create account — the email must be on the allowlist.",
-      );
+          : "Couldn't create account — sign-up must be enabled (ALLOW_ADMIN_SIGNUP) and the email allowlisted.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -79,6 +82,12 @@ export function AdminLogin() {
                 required
               />
             </div>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting && <Loader2 className="animate-spin" />}
               {flow === "signIn" ? "Sign in" : "Create account"}
