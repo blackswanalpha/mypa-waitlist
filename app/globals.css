@@ -223,37 +223,6 @@
 }
 
 @layer utilities {
-  @keyframes gradient {
-    0% {
-      background-position: 0% 50%;
-    }
-
-    50% {
-      background-position: 100% 50%;
-    }
-
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  .animate-gradient {
-    animation: gradient 6s ease infinite;
-  }
-
-  @keyframes shimmer {
-    0% {
-      background-position: -200% 0;
-    }
-    100% {
-      background-position: 200% 0;
-    }
-  }
-
-  .animate-shimmer {
-    animation: shimmer 2s ease-in-out infinite;
-  }
-
   /* Equalizer bars for the voice-first feature tile */
   @keyframes voicebar {
     0%,
@@ -268,20 +237,5 @@
   .animate-voicebar {
     animation: voicebar 1.2s ease-in-out infinite;
     transform-origin: bottom;
-  }
-
-  /* Shimmer text effect */
-  .shimmer-text {
-    background: linear-gradient(
-      90deg,
-      var(--foreground) 0%,
-      var(--primary) 50%,
-      var(--foreground) 100%
-    );
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: shimmer 2.5s ease-in-out infinite;
   }
 }

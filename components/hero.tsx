@@ -62,7 +62,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-3xl text-center">
         <div className="hero-pill mb-8 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 font-mono text-xs uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75 motion-reduce:animate-none" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-fern" />
           </span>
           Early access · now accepting signups
@@ -96,7 +96,7 @@ export function Hero() {
           </Button>
         </div>
 
-        <p className="hero-note mt-6 font-mono text-xs uppercase tracking-widest text-muted-foreground/70">
+        <p className="hero-note mt-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
           No spam · Get whitelisted for launch
         </p>
 

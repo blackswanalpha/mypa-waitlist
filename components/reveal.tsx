@@ -44,13 +44,16 @@ export function Reveal({
           ok: "(prefers-reduced-motion: no-preference)",
         },
         (ctx) => {
-          const reduce = ctx.conditions?.reduce;
+          // Under reduced motion, don't animate at all: a from-tween (even a
+          // near-instant one) starts the content hidden behind a ScrollTrigger,
+          // so a mis-measured trigger could leave it invisible forever.
+          if (ctx.conditions?.reduce) return;
           gsap.from(targets, {
-            y: reduce ? 0 : y,
+            y,
             autoAlpha: 0,
-            duration: reduce ? 0.01 : 0.8,
+            duration: 0.8,
             ease: "power3.out",
-            stagger: reduce ? 0 : stagger,
+            stagger,
             scrollTrigger: { trigger: ref.current, start, once },
           });
         },
