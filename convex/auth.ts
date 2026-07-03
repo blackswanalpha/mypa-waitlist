@@ -20,6 +20,15 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password<DataModel>({
       profile(params) {
+        // profile() only runs on the signUp flow, so this gates account
+        // creation without touching sign-in. Without it, anyone who learns an
+        // ADMIN_EMAILS address could register it (with their own password)
+        // before the real admin does — there is no email-ownership check.
+        // Bootstrap flow: set ALLOW_ADMIN_SIGNUP=true, create the account,
+        // unset it again (see README).
+        if (process.env.ALLOW_ADMIN_SIGNUP !== "true") {
+          throw new Error("Sign-up is disabled.");
+        }
         const email = String(params.email ?? "").toLowerCase();
         if (!isAllowlisted(email)) {
           throw new Error("This deployment is invite-only.");
