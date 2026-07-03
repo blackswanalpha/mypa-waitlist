@@ -1,0 +1,30 @@
+# VCS / editor
+.git
+.gitignore
+
+# deps & build output (rebuilt inside the image)
+node_modules
+.next
+out
+dist
+*.tsbuildinfo
+npm-debug.log*
+
+# secrets — env is injected via compose, never baked into the image
+.env
+.env.*
+
+# local convex CLI state
+.convex
+
+# docker files themselves + docs
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+description.md
+explanation.md
+scripts/
+
+# NOTE: convex/_generated/ is intentionally NOT ignored — it is gitignored but
+# required by `next build`; scripts/docker-init.sh regenerates it before building.
