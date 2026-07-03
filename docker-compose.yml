@@ -1,0 +1,83 @@
+# mypa-waitlist — full local stack:
+#   backend    self-hosted Convex (functions DB, port 3210 + HTTP actions 3211)
+#   dashboard  Convex dashboard (port 6791; log in with the deployment admin key)
+#   web        the Next.js app (port 3000)
+#
+# First-time bring-up (starts services, pushes convex/ functions, sets auth keys):
+#   ./scripts/docker-init.sh
+#
+# Backend-only mode for day-to-day dev (hot-reloaded app on the host):
+#   docker compose up -d backend dashboard   # then: npm run dev
+#
+# Service layout mirrors the official self-hosted compose:
+# https://github.com/get-convex/convex-backend/blob/main/self-hosted/docker/docker-compose.yml
+
+name: mypa-waitlist
+
+services:
+  backend:
+    # Pin with CONVEX_TAG (backend + dashboard publish matching tags).
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_TAG:-latest}
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "${CONVEX_PORT:-3210}:3210"
+      - "${CONVEX_SITE_PORT:-3211}:3211"
+    volumes:
+      - convex-data:/convex/data
+    environment:
+      # The URLs *clients outside the container* use to reach this deployment.
+      # CONVEX_SITE_ORIGIN is also the JWT issuer domain Convex Auth validates
+      # against (auth.config.ts), so it must stay consistent once auth keys are set.
+      - CONVEX_CLOUD_ORIGIN=${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:${CONVEX_PORT:-3210}}
+      - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:-http://127.0.0.1:${CONVEX_SITE_PORT:-3211}}
+      - INSTANCE_NAME
+      - INSTANCE_SECRET
+      - DO_NOT_REQUIRE_SSL
+      - REDACT_LOGS_TO_CLIENT
+      - DISABLE_BEACON
+      - RUST_LOG=${RUST_LOG:-info}
+      - RUST_BACKTRACE
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 10s
+    restart: unless-stopped
+
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_TAG:-latest}
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "${CONVEX_DASHBOARD_PORT:-6791}:6791"
+    environment:
+      # Browser-side URL of the backend (the dashboard runs in your browser).
+      - NEXT_PUBLIC_DEPLOYMENT_URL=${NEXT_PUBLIC_DEPLOYMENT_URL:-http://127.0.0.1:${CONVEX_PORT:-3210}}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      args:
+        # Baked into the client bundle — the URL the BROWSER uses.
+        NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://127.0.0.1:${CONVEX_PORT:-3210}}
+    image: mypa-waitlist-web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      # Server-side (middleware) URL — reaches the backend over the compose network.
+      - CONVEX_SERVER_URL=http://backend:3210
+    healthcheck:
+      test: wget -qO /dev/null http://127.0.0.1:3000/
+      interval: 10s
+      start_period: 15s
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  convex-data:

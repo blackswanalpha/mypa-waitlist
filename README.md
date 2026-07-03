@@ -101,6 +101,56 @@ into the Next build, then builds. Also:
 - Set prod Convex env: `ADMIN_EMAILS`, `RESEND_API_KEY`, `SITE_URL` (the Vercel
   URL), `RESEND_TEST_MODE=false`, `RESEND_FROM` (verified domain).
 
+## 8. Docker (self-hosted, no Convex cloud)
+
+The repo also runs fully locally under docker-compose — a **self-hosted Convex
+backend** (official `ghcr.io/get-convex/convex-backend` image) + the Convex
+dashboard + the Next.js app, with data persisted in a named volume
+(`convex-data`). No Convex account needed.
+
+```bash
+ADMIN_EMAILS="you@example.com" ./scripts/docker-init.sh
+```
+
+The script is idempotent: it starts `backend` + `dashboard`, generates the
+deployment admin key, wires `.env.local` (`CONVEX_SELF_HOSTED_URL` /
+`CONVEX_SELF_HOSTED_ADMIN_KEY`, commenting out any `CONVEX_DEPLOYMENT`), pushes
+`convex/` functions, generates the Convex Auth `JWT_PRIVATE_KEY`/`JWKS` if
+missing, sets `SITE_URL` (+ `ADMIN_EMAILS` / `RESEND_API_KEY` if exported), and
+builds + starts `web`.
+
+| URL | What |
+|---|---|
+| http://127.0.0.1:3000 | the app (`WEB_PORT`) |
+| http://127.0.0.1:3210 | Convex API (`CONVEX_PORT`) |
+| http://127.0.0.1:3211 | Convex HTTP actions (`CONVEX_SITE_PORT`) |
+| http://127.0.0.1:6791 | Convex dashboard — log in with the admin key the script prints (`CONVEX_DASHBOARD_PORT`) |
+
+Day-to-day dev with hot reload — containerised backend, host app:
+
+```bash
+SKIP_WEB=1 ./scripts/docker-init.sh   # or: docker compose up -d backend dashboard
+npm run dev
+```
+
+Notes:
+
+- `npx convex ...` CLI commands (env set, logs, dashboard data) work as usual —
+  they target the docker backend via the `CONVEX_SELF_HOSTED_*` vars in
+  `.env.local`.
+- After changing `convex/` functions with the `web` container in use, re-push
+  with `npx convex deploy -y` (or just re-run the init script). Rebuild `web`
+  (`docker compose up -d --build web`) only when app code changes.
+- `NEXT_PUBLIC_CONVEX_URL` is baked into the client bundle at image build time
+  (browser-facing URL); the Next server reaches the backend via
+  `CONVEX_SERVER_URL=http://backend:3210` (runtime env, see `middleware.ts`).
+- Switching from the previous `npx convex dev` anonymous-local setup starts
+  with a **fresh database** — the old state stays in
+  `~/.convex/anonymous-convex-backend-state/` (restore the commented
+  `CONVEX_DEPLOYMENT` line in `.env.local` to boot it again).
+- Pin images with `CONVEX_TAG=<rev>` (backend + dashboard publish matching
+  tags); default is `latest`.
+
 ## Architecture notes
 
 - **Public** mutations (`convex/{waitlist,feedback,contact}.ts` → `submit`)
