@@ -64,9 +64,10 @@ services:
       args:
         # Baked into the client bundle — the URL the BROWSER uses.
         NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://127.0.0.1:${CONVEX_PORT:-3210}}
-        # Convex Cloud builds (e.g. Coolify): deploy key that lets the image
-        # build push functions + generate convex/_generated/. Empty (unused)
-        # in the local self-hosted flow — docker-init.sh pre-generates it.
+        # Convex Cloud builds (e.g. Coolify): deploy key the image build uses
+        # to run `convex codegen` (generates convex/_generated/ only — never
+        # pushes functions). Empty (unused) in the local self-hosted flow —
+        # docker-init.sh pre-generates it.
         CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY:-}
     image: mypa-waitlist-web
     ports:
