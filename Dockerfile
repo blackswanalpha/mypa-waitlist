@@ -23,20 +23,27 @@ ENV NEXT_TELEMETRY_DISABLED=1
 #   - self-hosted local dev (docker-init.sh): already generated on the host
 #     against the `backend` container before this build starts.
 #   - Convex Cloud (Coolify/CI, no self-hosted backend running yet): generate
-#     it here — Convex Cloud is internet-reachable even though a same-compose
-#     `backend` container wouldn't be. Needs a deploy key, passed as a
-#     BuildKit secret (never baked into image layers/history).
+#     it here with `npx convex deploy` — Convex Cloud is internet-reachable
+#     even though a same-compose `backend` container wouldn't be. The deploy
+#     key arrives as a BuildKit secret (docker build --secret) or, on Coolify
+#     — whose compose builds carry env-file values through build args, not
+#     secret mounts — as the CONVEX_DEPLOY_KEY arg (see docker-compose.yml).
+ARG CONVEX_DEPLOY_KEY
 RUN --mount=type=secret,id=CONVEX_DEPLOY_KEY \
     if [ -f convex/_generated/api.js ]; then \
       echo "Using pre-generated convex/_generated/ (self-hosted local build)."; \
-    elif [ -s /run/secrets/CONVEX_DEPLOY_KEY ]; then \
-      echo "Generating convex/_generated/ from Convex Cloud."; \
-      CONVEX_DEPLOY_KEY="$(cat /run/secrets/CONVEX_DEPLOY_KEY)" npx convex deploy -y; \
     else \
-      echo "convex/_generated/ missing from build context and no CONVEX_DEPLOY_KEY secret provided."; \
-      echo "Self-hosted: run scripts/docker-init.sh first."; \
-      echo "Convex Cloud: pass a CONVEX_DEPLOY_KEY build secret."; \
-      exit 1; \
+      KEY="${CONVEX_DEPLOY_KEY:-}"; \
+      [ -s /run/secrets/CONVEX_DEPLOY_KEY ] && KEY="$(cat /run/secrets/CONVEX_DEPLOY_KEY)"; \
+      if [ -n "$KEY" ]; then \
+        echo "Generating convex/_generated/ from Convex Cloud."; \
+        CONVEX_DEPLOY_KEY="$KEY" npx convex deploy -y; \
+      else \
+        echo "convex/_generated/ missing from build context and no CONVEX_DEPLOY_KEY provided."; \
+        echo "Self-hosted: run scripts/docker-init.sh first."; \
+        echo "Convex Cloud: pass CONVEX_DEPLOY_KEY as a build secret or build arg."; \
+        exit 1; \
+      fi; \
     fi
 RUN npm run build
 
