@@ -14,7 +14,7 @@ const COLUMNS = [
     title: "Company",
     links: [
       { href: "/contact", label: "Contact" },
-      { href: "mailto:hello@mypa.app", label: "hello@mypa.app" },
+      { href: "mailto:hello@mypa.computer", label: "hello@mypa.computer" },
     ],
   },
 ];
