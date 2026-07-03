@@ -3,6 +3,13 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin";
+import { bump, read } from "./counters";
+import {
+  limiter,
+  MAX_NAME,
+  MAX_EMAIL,
+  MAX_PHONE,
+} from "./rateLimits";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,15 +23,37 @@ export const submit = mutation({
     email: v.string(),
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
+    agreed: v.boolean(),
+    // Honeypot: hidden in the form, so a non-empty value means a bot filled
+    // it. We report success without writing anything.
+    website: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.website) {
+      return { ok: true as const, duplicate: false as const };
+    }
+
     const name = args.name.trim();
     const email = args.email.trim().toLowerCase();
+    const phone = args.phone?.trim() || undefined;
 
     if (name.length < 2) throw new Error("Please enter your name.");
-    if (!EMAIL_RE.test(email)) {
+    if (name.length > MAX_NAME) throw new Error("That name is too long.");
+    if (email.length > MAX_EMAIL || !EMAIL_RE.test(email)) {
       throw new Error("Please enter a valid email address.");
     }
+    if (phone && phone.length > MAX_PHONE) {
+      throw new Error("That phone number is too long.");
+    }
+    if (!args.agreed) {
+      throw new Error("Please agree to receive launch updates.");
+    }
+
+    await limiter.limit(ctx, "waitlistSubmit", { throws: true });
+    await limiter.limit(ctx, "waitlistSubmitPerEmail", {
+      key: email,
+      throws: true,
+    });
 
     const existing = await ctx.db
       .query("waitlist")
@@ -37,11 +66,14 @@ export const submit = mutation({
     await ctx.db.insert("waitlist", {
       name,
       email,
-      phone: args.phone?.trim() || undefined,
+      phone,
       status: "pending",
       source: args.source ?? "landing",
       createdAt: Date.now(),
+      consentAt: Date.now(),
     });
+    await bump(ctx, "waitlist:total", 1);
+    await bump(ctx, "waitlist:pending", 1);
 
     // Side-effects run only if this transaction commits.
     await ctx.scheduler.runAfter(0, internal.emails.send.sendWaitlistEmails, {
@@ -66,12 +98,25 @@ export const listForAdmin = query({
   },
 });
 
-/** ADMIN — quick total for the dashboard header. */
+/** ADMIN — quick total for the dashboard header (counter point-read). */
 export const count = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const all = await ctx.db.query("waitlist").collect();
-    return all.length;
+    return await read(ctx, "waitlist:total");
+  },
+});
+
+/** ADMIN — per-status totals for the filter chips. */
+export const countByStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return {
+      total: await read(ctx, "waitlist:total"),
+      pending: await read(ctx, "waitlist:pending"),
+      invited: await read(ctx, "waitlist:invited"),
+      registered: await read(ctx, "waitlist:registered"),
+    };
   },
 });

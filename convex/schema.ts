@@ -11,7 +11,9 @@ export default defineSchema({
   // users, authAccounts, authSessions, authVerificationCodes, ...
   ...authTables,
 
-  // Early-access signups (name + email → whitelisted/registered at launch).
+  // Early-access signups. "invited" is the whitelisted state (labelled
+  // "Whitelisted" in the admin UI): those rows are synced to the product
+  // backend's launch allowlist.
   waitlist: defineTable({
     name: v.string(),
     email: v.string(),
@@ -23,9 +25,13 @@ export default defineSchema({
     ),
     source: v.optional(v.string()), // e.g. "landing", "hero"
     createdAt: v.number(),
+    consentAt: v.optional(v.number()), // when the signup ticked the consent box
+    whitelistedAt: v.optional(v.number()), // when status flipped to "invited"
+    syncedAt: v.optional(v.number()), // last successful push to the backend
   })
     .index("by_email", ["email"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_status", ["status"]),
 
   // Free-form product feedback (name/email optional, message required).
   feedback: defineTable({
@@ -35,6 +41,14 @@ export default defineSchema({
     message: v.string(),
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
+
+  // Dashboard stat counters, maintained transactionally by the submit/admin
+  // mutations so the count queries never need a full-table scan (which would
+  // start throwing once a table outgrows Convex's per-query read limits).
+  counters: defineTable({
+    key: v.string(), // e.g. "waitlist:total", "contact:unhandled"
+    value: v.number(),
+  }).index("by_key", ["key"]),
 
   // Contact-form messages, with a handled flag for the admin triage view.
   contactMessages: defineTable({
