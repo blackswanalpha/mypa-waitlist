@@ -22,6 +22,7 @@ import {
 import { StatCard } from "@/components/admin/stat-card";
 import { DataTablePagination } from "@/components/admin/data-table-pagination";
 import { usePaginatedAdminTable } from "@/components/admin/use-paginated-admin-table";
+import { WaitlistTab } from "@/components/admin/waitlist-tab";
 
 function fmt(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -38,50 +39,6 @@ function EmptyState({ label }: { label: string }) {
       <Inbox className="h-8 w-8 opacity-50" />
       <p className="text-sm">{label}</p>
     </div>
-  );
-}
-
-function WaitlistTab() {
-  const t = usePaginatedAdminTable(api.waitlist.listForAdmin, "waitlist");
-
-  if (t.isFirstLoad) {
-    return <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>;
-  }
-  if (t.isEmpty) return <EmptyState label="No signups yet." />;
-
-  return (
-    <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Joined</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {t.pageRows.map((r) => (
-            <TableRow key={r._id}>
-              <TableCell className="font-medium">{r.name}</TableCell>
-              <TableCell>{r.email}</TableCell>
-              <TableCell className="text-muted-foreground">{r.phone ?? "—"}</TableCell>
-              <TableCell>
-                <Badge variant="secondary" className="capitalize">
-                  {r.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">{fmt(r.createdAt)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {t.isPageLoading && (
-        <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
-      )}
-      <DataTablePagination {...t} />
-    </>
   );
 }
 
