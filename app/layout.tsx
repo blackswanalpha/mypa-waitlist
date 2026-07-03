@@ -32,11 +32,37 @@ const poppins = Poppins({
   display: "swap",
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const TITLE = "MyPA — Your voice-first AI personal assistant";
+const DESCRIPTION =
+  "MyPA plans, schedules, and gets things done — just say \"Hey MyPA\". Join the early-access waitlist.";
+
 export const metadata: Metadata = {
-  title: "MyPA — Your voice-first AI personal assistant",
-  description:
-    "MyPA plans, schedules, and gets things done — just say \"Hey MyPA\". Join the early-access waitlist.",
-  icons: { icon: "/favicon/favicon.svg" },
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  icons: {
+    icon: [
+      { url: "/favicon/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: "/favicon/apple-touch-icon.png",
+  },
+  manifest: "/favicon/site.webmanifest",
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "MyPA",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [{ url: "/favicon/web-app-manifest-512x512.png", width: 512, height: 512 }],
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/favicon/web-app-manifest-512x512.png"],
+  },
 };
 
 export default function RootLayout({

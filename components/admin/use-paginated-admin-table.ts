@@ -15,24 +15,32 @@ import { useAdminTable, type AdminTableKey } from "@/lib/admin-table-store";
  * live. Results accumulate via `loadMore`; the current page is sliced
  * client-side, the cursor query is auto-topped-up when the user advances, and
  * the page index is clamped if the underlying data shrinks.
+ *
+ * `extraArgs` is forwarded to the query (e.g. a status filter); changing it
+ * resets the cursor pagination automatically.
  */
 export function usePaginatedAdminTable<Query extends PaginatedQueryReference>(
   query: Query,
   key: AdminTableKey,
+  extraArgs?: PaginatedQueryArgs<Query>,
 ) {
   const { pageIndex, pageSize, setPageIndex, setPageSize } = useAdminTable(key);
   const { results, status, loadMore } = usePaginatedQuery(
     query,
-    {} as PaginatedQueryArgs<Query>,
+    (extraArgs ?? {}) as PaginatedQueryArgs<Query>,
     { initialNumItems: pageSize },
   );
 
   const loaded = results.length;
   const needed = (pageIndex + 1) * pageSize;
 
-  // Top up the cursor query until the current page is fully loaded.
+  // Top up the cursor query until the current page is fully loaded, PLUS one
+  // row of lookahead (<=): when the loaded rows are an exact page multiple,
+  // Convex still reports CanLoadMore even if nothing is left, which used to
+  // light up "Next" on the last page. The lookahead settles the question —
+  // either extra rows arrive or the query flips to Exhausted.
   useEffect(() => {
-    if (loaded < needed && status === "CanLoadMore") loadMore(pageSize);
+    if (loaded <= needed && status === "CanLoadMore") loadMore(pageSize);
   }, [loaded, needed, status, loadMore, pageSize]);
 
   // Clamp the page if the table shrank under us (live deletes / size change).
@@ -44,8 +52,7 @@ export function usePaginatedAdminTable<Query extends PaginatedQueryReference>(
 
   const pageRows = results.slice(pageIndex * pageSize, needed);
   const exhausted = status === "Exhausted";
-  const hasNext =
-    needed < loaded || status === "CanLoadMore" || status === "LoadingMore";
+  const hasNext = needed < loaded || !exhausted;
 
   return {
     pageRows,
@@ -65,5 +72,9 @@ export function usePaginatedAdminTable<Query extends PaginatedQueryReference>(
       status !== "Exhausted" &&
       status !== "LoadingFirstPage",
     isEmpty: exhausted && loaded === 0,
+    /** All rows loaded so far (newest first) — used by client-side search. */
+    loadedRows: results,
+    status,
+    loadMore,
   };
 }

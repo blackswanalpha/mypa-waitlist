@@ -47,7 +47,7 @@ export default function HomePage() {
             <Reveal>
               <Lottie
                 src={LOTTIE.waitlist}
-                className="mb-4 h-36 w-auto md:h-44"
+                className="mb-4 h-36 w-36 md:h-44 md:w-44"
               />
               <p className="font-mono text-xs uppercase tracking-widest text-fern">
                 Early access

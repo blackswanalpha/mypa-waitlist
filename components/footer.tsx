@@ -59,7 +59,7 @@ export function Footer() {
           </p>
           <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted-foreground">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75 motion-reduce:animate-none" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-fern" />
             </span>
             Building toward launch
