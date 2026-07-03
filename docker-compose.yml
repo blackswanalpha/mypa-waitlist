@@ -1,13 +1,21 @@
-# mypa-waitlist — full local stack:
-#   backend    self-hosted Convex (functions DB, port 3210 + HTTP actions 3211)
-#   dashboard  Convex dashboard (port 6791; log in with the deployment admin key)
-#   web        the Next.js app (port 3000)
+# mypa-waitlist — one compose file, two modes:
 #
-# First-time bring-up (starts services, pushes convex/ functions, sets auth keys):
-#   ./scripts/docker-init.sh
+#   Production (Coolify + Convex Cloud): a bare `docker compose up` starts
+#   ONLY web — backend + dashboard sit behind the `selfhosted` profile.
+#   Required env: NEXT_PUBLIC_CONVEX_URL + CONVEX_SERVER_URL (both the
+#   https://<deployment>.convex.cloud URL) and CONVEX_DEPLOY_KEY (production
+#   deploy key, build-time; used only for `convex codegen` during the build).
 #
-# Backend-only mode for day-to-day dev (hot-reloaded app on the host):
-#   docker compose up -d backend dashboard   # then: npm run dev
+#   Local self-hosted stack:
+#     backend    self-hosted Convex (functions DB, port 3210 + HTTP actions 3211)
+#     dashboard  Convex dashboard (port 6791; log in with the deployment admin key)
+#     web        the Next.js app (port 3000)
+#   First-time bring-up (starts services, pushes convex/ functions, sets auth keys):
+#     ./scripts/docker-init.sh
+#   Backend-only mode for day-to-day dev (hot-reloaded app on the host):
+#     docker compose up -d backend dashboard   # then: npm run dev
+#   (naming a profiled service explicitly activates its profile automatically;
+#   full stack at once: docker compose --profile selfhosted up -d)
 #
 # Service layout mirrors the official self-hosted compose:
 # https://github.com/get-convex/convex-backend/blob/main/self-hosted/docker/docker-compose.yml
@@ -16,6 +24,7 @@ name: mypa-waitlist
 
 services:
   backend:
+    profiles: ["selfhosted"]
     # Pin with CONVEX_TAG (backend + dashboard publish matching tags).
     image: ghcr.io/get-convex/convex-backend:${CONVEX_TAG:-latest}
     stop_grace_period: 10s
@@ -45,6 +54,7 @@ services:
     restart: unless-stopped
 
   dashboard:
+    profiles: ["selfhosted"]
     image: ghcr.io/get-convex/convex-dashboard:${CONVEX_TAG:-latest}
     stop_grace_period: 10s
     stop_signal: SIGINT
@@ -80,9 +90,8 @@ services:
       test: wget -qO /dev/null http://127.0.0.1:3000/
       interval: 10s
       start_period: 15s
-    depends_on:
-      backend:
-        condition: service_healthy
+    # No depends_on on backend: it's profile-gated (absent in prod), and the
+    # local flow (docker-init.sh) sequences backend before web explicitly.
     restart: unless-stopped
 
 volumes:
