@@ -70,7 +70,7 @@ function Waveform() {
     <div className="mt-5 flex items-center gap-3 rounded-xl border border-border/50 bg-muted/40 px-4 py-3">
       <span className="flex flex-none items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-fern">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75 motion-reduce:animate-none" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-fern" />
         </span>
         Listening
@@ -162,7 +162,7 @@ function FeatureCard({ feature }: { feature: Feature }) {
           <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-sm">
             <Icon className="h-5 w-5" />
           </span>
-          <span className="font-mono text-xs tracking-widest text-muted-foreground/40">
+          <span className="font-mono text-xs tracking-widest text-muted-foreground/70">
             {feature.index}
           </span>
         </div>

@@ -41,7 +41,7 @@ const MOMENTS: Moment[] = [
 function EyebrowDot() {
   return (
     <span className="relative flex h-1.5 w-1.5">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75" />
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fern opacity-75 motion-reduce:animate-none" />
       <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-fern" />
     </span>
   );
@@ -64,7 +64,7 @@ function MomentCell({
           <EyebrowDot />
           Voice command
         </span>
-        <span className="font-mono text-xs tracking-widest text-muted-foreground/40">
+        <span className="font-mono text-xs tracking-widest text-muted-foreground/70">
           {moment.num}
         </span>
       </div>

@@ -99,7 +99,7 @@ export function Faq() {
               >
                 <AccordionPrimitive.Header className="flex">
                   <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-4 rounded-md py-5 text-left outline-none transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50">
-                    <span className="font-mono text-xs tracking-widest text-muted-foreground/40 transition-colors group-data-[state=open]:text-primary/70">
+                    <span className="font-mono text-xs tracking-widest text-muted-foreground/70 transition-colors group-data-[state=open]:text-primary">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <span className="flex-1 text-[15px] font-medium tracking-tight text-foreground transition-colors group-data-[state=open]:text-primary md:text-base">

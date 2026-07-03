@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MobileNav } from "@/components/mobile-nav";
 import { MyPALogo } from "@/components/mypa-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function Header() {
           <Button asChild size="sm" className="hidden sm:inline-flex">
             <Link href="/#waitlist">Join waitlist</Link>
           </Button>
+          <MobileNav items={NAV} />
         </div>
       </div>
     </header>
