@@ -163,7 +163,7 @@ builds + starts `web`.
 
 | URL | What |
 |---|---|
-| http://127.0.0.1:3000 | the app (`WEB_PORT`) |
+| http://127.0.0.1:4578 | the app (`WEB_PORT`) |
 | http://127.0.0.1:3210 | Convex API (`CONVEX_PORT`) |
 | http://127.0.0.1:3211 | Convex HTTP actions (`CONVEX_SITE_PORT`) |
 | http://127.0.0.1:6791 | Convex dashboard — log in with the admin key the script prints (`CONVEX_DASHBOARD_PORT`) |

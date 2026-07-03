@@ -9,7 +9,7 @@
 #   Local self-hosted stack:
 #     backend    self-hosted Convex (functions DB, port 3210 + HTTP actions 3211)
 #     dashboard  Convex dashboard (port 6791; log in with the deployment admin key)
-#     web        the Next.js app (port 3000)
+#     web        the Next.js app (port 4578)
 #   First-time bring-up (starts services, pushes convex/ functions, sets auth keys):
 #     ./scripts/docker-init.sh
 #   Backend-only mode for day-to-day dev (hot-reloaded app on the host):
@@ -81,13 +81,15 @@ services:
         CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY:-}
     image: mypa-waitlist-web
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      # 4578 inside and out (Dockerfile ENV PORT=4578): 3000 is a crowded
+      # default and was already taken on the production server.
+      - "${WEB_PORT:-4578}:4578"
     environment:
       # Server-side (middleware) URL — the compose-network backend by default;
       # override with the Convex Cloud URL when web is the only service in use.
       - CONVEX_SERVER_URL=${CONVEX_SERVER_URL:-http://backend:3210}
     healthcheck:
-      test: wget -qO /dev/null http://127.0.0.1:3000/
+      test: wget -qO /dev/null http://127.0.0.1:4578/
       interval: 10s
       start_period: 15s
     # No depends_on on backend: it's profile-gated (absent in prod), and the
