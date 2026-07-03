@@ -50,6 +50,15 @@ export default defineSchema({
     value: v.number(),
   }).index("by_key", ["key"]),
 
+  // One row per (campaign, recipient) — the dedupe ledger for one-off email
+  // campaigns (see emails/campaign.ts), so a re-run can never double-send.
+  emailSends: defineTable({
+    email: v.string(),
+    campaign: v.string(),
+    source: v.string(), // how we know them: "waitlist" | "feedback" | "contact"
+    sentAt: v.number(),
+  }).index("by_campaign_email", ["campaign", "email"]),
+
   // Contact-form messages, with a handled flag for the admin triage view.
   contactMessages: defineTable({
     name: v.string(),

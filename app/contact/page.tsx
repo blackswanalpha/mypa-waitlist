@@ -34,8 +34,8 @@ export default function ContactPage() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Mail className="h-4 w-4" />
                 </span>
-                <a href="mailto:hello@mypa.app" className="hover:text-foreground">
-                  hello@mypa.app
+                <a href="mailto:hello@mypa.computer" className="hover:text-foreground">
+                  hello@mypa.computer
                 </a>
               </div>
               <div className="flex items-center gap-3 text-sm text-foreground/90">

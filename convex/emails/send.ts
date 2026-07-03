@@ -17,9 +17,20 @@ export const resend: Resend = new Resend(components.resend, {
   testMode: process.env.RESEND_TEST_MODE !== "false",
 });
 
-// In prod, set RESEND_FROM to a Resend-verified sender, e.g. "MyPA <hello@mypa.app>".
-// onboarding@resend.dev is Resend's shared test sender (works without a domain).
-const FROM = process.env.RESEND_FROM ?? "MyPA <onboarding@resend.dev>";
+// Sender resolution, most specific wins:
+//   1. RESEND_FROM — full header, e.g. 'MyPA <hello@mypa.computer>'
+//   2. EMAIL_DOMAIN — a Resend-verified domain; sender becomes hello@<domain>
+//   3. onboarding@resend.dev — Resend's shared test sender (works without a domain)
+export const FROM =
+  process.env.RESEND_FROM ??
+  (process.env.EMAIL_DOMAIN
+    ? `MyPA <hello@${process.env.EMAIL_DOMAIN}>`
+    : "MyPA <onboarding@resend.dev>");
+
+// Replies to automated mail should land somewhere a human reads.
+export const REPLY_TO = process.env.EMAIL_DOMAIN
+  ? [`hello@${process.env.EMAIL_DOMAIN}`]
+  : undefined;
 
 function adminEmails(): string[] {
   return (process.env.ADMIN_EMAILS ?? "")
@@ -34,7 +45,8 @@ export const sendWaitlistEmails = internalMutation({
     await resend.sendEmail(ctx, {
       from: FROM,
       to: email,
-      subject: "You're on the MyPA waitlist",
+      replyTo: REPLY_TO,
+      subject: "Welcome to MyPA — your spot is saved 🌿",
       html: waitlistConfirmationHtml(name),
     });
     for (const admin of adminEmails()) {
@@ -67,7 +79,8 @@ export const sendFeedbackEmails = internalMutation({
       await resend.sendEmail(ctx, {
         from: FROM,
         to: email,
-        subject: "Thanks for your MyPA feedback",
+        replyTo: REPLY_TO,
+        subject: "Thank you — your feedback just shaped MyPA",
         html: feedbackThanksHtml(name),
       });
     }
@@ -101,7 +114,8 @@ export const sendContactEmails = internalMutation({
     await resend.sendEmail(ctx, {
       from: FROM,
       to: email,
-      subject: "We got your message — MyPA",
+      replyTo: REPLY_TO,
+      subject: "We've got your message — MyPA",
       html: contactThanksHtml(name),
     });
     for (const admin of adminEmails()) {
