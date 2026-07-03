@@ -16,7 +16,8 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CONVEX_PORT="${CONVEX_PORT:-3210}"
 CONVEX_DASHBOARD_PORT="${CONVEX_DASHBOARD_PORT:-6791}"
-WEB_PORT="${WEB_PORT:-3000}"
+WEB_PORT="${WEB_PORT:-4578}"
+export WEB_PORT  # compose interpolates ${WEB_PORT} — keep script + compose in sync
 SELF_URL="http://127.0.0.1:${CONVEX_PORT}"
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
