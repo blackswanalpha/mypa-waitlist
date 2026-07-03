@@ -85,16 +85,110 @@ export const submit = mutation({
   },
 });
 
-/** ADMIN — paginated, newest first. */
+const STATUS = v.union(
+  v.literal("pending"),
+  v.literal("invited"),
+  v.literal("registered"),
+);
+
+/** ADMIN — paginated, newest first, optionally filtered by status. */
 export const listForAdmin = query({
-  args: { paginationOpts: paginationOptsValidator },
+  args: { paginationOpts: paginationOptsValidator, status: v.optional(STATUS) },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.db
+    const status = args.status;
+    const q = status
+      ? ctx.db
+          .query("waitlist")
+          .withIndex("by_status", (qq) => qq.eq("status", status))
+      : ctx.db.query("waitlist").withIndex("by_createdAt");
+    return await q.order("desc").paginate(args.paginationOpts);
+  },
+});
+
+/**
+ * ADMIN — bulk status change ("invited" = whitelisted). Flipping to invited
+ * stamps whitelistedAt and clears syncedAt so the row is picked up by the
+ * next backend sync; leaving invited also clears syncedAt (it only describes
+ * the current whitelisted state).
+ */
+export const setStatus = mutation({
+  args: { ids: v.array(v.id("waitlist")), status: STATUS },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    if (args.ids.length > 200) {
+      throw new Error("At most 200 rows per call — chunk the selection.");
+    }
+    let updated = 0;
+    for (const id of args.ids) {
+      const doc = await ctx.db.get(id);
+      if (!doc || doc.status === args.status) continue;
+      await ctx.db.patch(id, {
+        status: args.status,
+        whitelistedAt:
+          args.status === "invited" ? Date.now() : doc.whitelistedAt,
+        syncedAt: undefined,
+      });
+      await bump(ctx, `waitlist:${doc.status}`, -1);
+      await bump(ctx, `waitlist:${args.status}`, 1);
+      updated++;
+    }
+    return { updated };
+  },
+});
+
+/**
+ * ADMIN — whitelist every pending signup, one 200-row transaction at a time.
+ * The client loops while `remaining` is true, keeping each transaction small.
+ */
+export const whitelistAllPending = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const batch = await ctx.db
       .query("waitlist")
-      .withIndex("by_createdAt")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .take(200);
+    const now = Date.now();
+    for (const doc of batch) {
+      await ctx.db.patch(doc._id, {
+        status: "invited",
+        whitelistedAt: now,
+        syncedAt: undefined,
+      });
+    }
+    if (batch.length > 0) {
+      await bump(ctx, "waitlist:pending", -batch.length);
+      await bump(ctx, "waitlist:invited", batch.length);
+    }
+    const next = await ctx.db
+      .query("waitlist")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .first();
+    return { updated: batch.length, remaining: next !== null };
+  },
+});
+
+/**
+ * ADMIN — raw pages for the CSV export. The client loops the cursor until
+ * isDone, so no single query has to hold the whole table.
+ */
+export const exportPage = query({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    status: v.optional(STATUS),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const status = args.status;
+    const q = status
+      ? ctx.db
+          .query("waitlist")
+          .withIndex("by_status", (qq) => qq.eq("status", status))
+      : ctx.db.query("waitlist").withIndex("by_createdAt");
+    return await q
       .order("desc")
-      .paginate(args.paginationOpts);
+      .paginate({ cursor: args.cursor, numItems: 500 });
   },
 });
 
