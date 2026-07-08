@@ -191,6 +191,13 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Backstop against horizontal bleed from translated decor (blobs, marquee).
+     `clip` rather than `hidden`: hidden would make html a scroll container and
+     break position:sticky (header, FAQ rail) and html's scroll-smooth. */
+  html {
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);

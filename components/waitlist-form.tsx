@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { getAttribution } from "@/lib/attribution";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +40,24 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
+const SHARE_TEXT =
+  "I just joined the waitlist for MyPA — a voice-first AI personal assistant. Grab a spot:";
+
+function shareLink(referralCode: string): string {
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${origin}/?ref=${referralCode}`;
+}
+
 export function WaitlistForm() {
   const submit = useMutation(api.waitlist.submit);
   const [done, setDone] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [referral, setReferral] = useState<{
+    referralCode?: string;
+    position?: number;
+  }>({});
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -59,12 +74,14 @@ export function WaitlistForm() {
         source: "landing",
         agreed: data.agreed,
         website: data.website || undefined,
+        ...getAttribution(),
       });
       if (res.duplicate) {
         toast.info("You're already on the list — we'll be in touch.");
       } else {
         toast.success("You're on the waitlist!");
       }
+      setReferral({ referralCode: res.referralCode, position: res.position });
       setDone(true);
     } catch (e) {
       const message =
@@ -75,6 +92,19 @@ export function WaitlistForm() {
   };
 
   if (done) {
+    const link = referral.referralCode ? shareLink(referral.referralCode) : null;
+    const copyLink = async () => {
+      if (!link) return;
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success("Link copied — share it anywhere.");
+      } catch {
+        toast.error("Couldn't copy — select the link and copy it manually.");
+      }
+    };
+    const encodedLink = link ? encodeURIComponent(link) : "";
+    const encodedText = encodeURIComponent(SHARE_TEXT);
+
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
@@ -82,12 +112,69 @@ export function WaitlistForm() {
             <Check className="h-6 w-6" />
           </div>
           <h3 className="font-serif text-2xl font-light text-foreground">
-            You&rsquo;re on the list.
+            {referral.position
+              ? `You're #${referral.position} on the list.`
+              : "You’re on the list."}
           </h3>
           <p className="max-w-xs text-sm text-muted-foreground">
             Check your inbox for a confirmation. We&rsquo;ll email your invite
             the moment MyPA is ready.
           </p>
+
+          {link && (
+            <div className="mt-2 w-full space-y-3">
+              <p className="text-sm font-medium text-foreground">
+                Share your link — bring friends along:
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={link}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="font-mono text-xs"
+                  aria-label="Your referral link"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={copyLink}
+                  aria-label="Copy referral link"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedLink}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Share on X
+                  </a>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <a
+                    href={`https://wa.me/?text=${encodedText}%20${encodedLink}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp
+                  </a>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <a
+                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    LinkedIn
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

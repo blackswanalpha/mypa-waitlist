@@ -11,6 +11,7 @@ import { WaitlistForm } from "@/components/waitlist-form";
 import { FeedbackForm } from "@/components/feedback-form";
 import { Lottie } from "@/components/lottie";
 import { LOTTIE } from "@/lib/lottie-sources";
+import { FAQS } from "@/lib/faq-data";
 
 const BENEFITS = [
   "Be first in line when MyPA launches",
@@ -18,9 +19,23 @@ const BENEFITS = [
   "Help shape what we build, directly",
 ];
 
+const FAQ_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-fern/20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
+      />
       <Header />
 
       <main className="flex-1">

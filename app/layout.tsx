@@ -41,6 +41,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: DESCRIPTION,
+  alternates: { canonical: "/" },
   icons: {
     icon: [
       { url: "/favicon/favicon.svg", type: "image/svg+xml" },
@@ -55,14 +56,36 @@ export const metadata: Metadata = {
     siteName: "MyPA",
     title: TITLE,
     description: DESCRIPTION,
-    images: [{ url: "/favicon/web-app-manifest-512x512.png", width: 512, height: 512 }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "MyPA — your voice-first AI personal assistant" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/favicon/web-app-manifest-512x512.png"],
+    images: ["/og.png"],
   },
+};
+
+const ORG_JSONLD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "MyPA",
+      url: SITE_URL,
+      logo: `${SITE_URL}/favicon/web-app-manifest-512x512.png`,
+      email: "hello@mypa.computer",
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: "MyPA",
+      url: SITE_URL,
+      description: DESCRIPTION,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -74,6 +97,10 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${lora.variable} ${ibmPlexMono.variable} ${poppins.variable} font-sans antialiased`}
         >
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSONLD) }}
+          />
           <Providers>{children}</Providers>
         </body>
       </html>
