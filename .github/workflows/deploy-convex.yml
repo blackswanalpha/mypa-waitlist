@@ -1,0 +1,57 @@
+name: Deploy Convex (prod)
+
+# Pushes convex/ functions + schema to the PRODUCTION Convex Cloud deployment.
+#
+# Why this exists: prod's frontend is built on Coolify, whose Docker build is
+# codegen-only — it runs `npx convex codegen` so the Next.js bundle *compiles*
+# against api.* references, but it deliberately does NOT push functions (see the
+# Dockerfile). Without a separate deploy step, a merge that adds a Convex
+# function ships a frontend that calls something the deployment doesn't have —
+# the client sees "Could not find public function for '<module>:<fn>'" (masked
+# to a generic "Server Error"). That is exactly what happened to the analytics
+# suite in #10. This job is that separate step: it keeps the deployed functions
+# from ever lagging the shipped frontend.
+#
+# `convex deploy` pushes functions AND schema atomically and is idempotent (a
+# no-op diff when nothing changed), so re-runs are safe. It runs its own
+# typecheck of convex/, so a broken function fails the job instead of deploying.
+
+on:
+  push:
+    branches: [main]
+    # Only when the Convex side actually changes. Use the manual trigger below
+    # to force a re-deploy (e.g. to recover a failed run or reconcile drift).
+    paths:
+      - "convex/**"
+      - ".github/workflows/deploy-convex.yml"
+  workflow_dispatch: {}
+
+# Serialize deploys so two back-to-back merges can't race the same deployment
+# (do NOT cancel an in-flight deploy — let it finish, then run the next).
+concurrency:
+  group: convex-prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy functions + schema to prod Convex
+        run: npx convex deploy -y
+        env:
+          # Production deploy key — add it under
+          # Settings -> Secrets and variables -> Actions as CONVEX_DEPLOY_KEY.
+          # Generate one in the Convex dashboard: the *production* deployment ->
+          # Settings -> Generate Production Deploy Key. The deployment this job
+          # targets is resolved from the key, so no URL is needed here.
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
