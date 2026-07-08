@@ -143,6 +143,31 @@ into the Next build, then builds. Also:
 - Set prod Convex env: `ADMIN_EMAILS`, `RESEND_API_KEY`, `SITE_URL` (the Vercel
   URL), `RESEND_TEST_MODE=false`, `RESEND_FROM` (verified domain).
 
+### 7a. Deploy (Coolify) — functions deploy separately via CI
+
+The live prod is **Coolify**, not Vercel, and its Docker build is **codegen-only**
+by design (it runs `npx convex codegen` so the Next bundle compiles against
+`api.*`, but does NOT push functions — see the `Dockerfile`). So the Coolify
+build alone will ship a frontend that references Convex functions the deployment
+doesn't have, surfacing as `Could not find public function for '<module>:<fn>'`
+(masked to a generic `Server Error` on the client).
+
+The function/schema push therefore runs as its own step in CI:
+[`.github/workflows/deploy-convex.yml`](.github/workflows/deploy-convex.yml)
+runs `npx convex deploy` on every push to `main` that touches `convex/**`.
+
+One-time setup: add the **production** deploy key as a GitHub Actions secret —
+repo → Settings → Secrets and variables → Actions → `CONVEX_DEPLOY_KEY` (generate
+it in the Convex dashboard: production deployment → Settings → Generate
+Production Deploy Key). Prod Convex env (`ADMIN_EMAILS` etc.) is set once with
+`npx convex env set …` and is not managed by the workflow.
+
+Ordering note: on a merge that changes both the frontend and `convex/`, the CI
+function deploy (~1 min) finishes well before the Coolify image build + Next
+build (several minutes), so functions land first — the safe direction. To force
+a deploy out of band (recover a failed run, reconcile drift), use the workflow's
+**Run workflow** button (`workflow_dispatch`).
+
 ## 8. Docker (self-hosted, no Convex cloud)
 
 The repo also runs fully locally under docker-compose — a **self-hosted Convex
