@@ -14,6 +14,14 @@ export const limiter = new RateLimiter(components.rateLimiter, {
   contactSubmit: { kind: "token bucket", rate: 15, period: MINUTE },
   contactSubmitPerEmail: { kind: "token bucket", rate: 5, period: HOUR },
   feedbackSubmit: { kind: "token bucket", rate: 15, period: MINUTE },
+  // Page-view beacon: dropped silently on limit (analytics.track never throws).
+  pageview: { kind: "token bucket", rate: 300, period: MINUTE },
+  pageviewPerSession: {
+    kind: "token bucket",
+    rate: 20,
+    period: MINUTE,
+    capacity: 40,
+  },
 });
 
 /** Shared server-side length caps (mirrored by the zod schemas client-side). */

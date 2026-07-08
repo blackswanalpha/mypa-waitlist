@@ -1,9 +1,11 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin";
 import { bump, read } from "./counters";
+import { bumpDaily, utcDay } from "./analytics";
 import {
   limiter,
   MAX_NAME,
@@ -13,9 +15,39 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const CODE_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+const CODE_LENGTH = 8;
+const MAX_ATTRIBUTION = 200;
+
+function randomReferralCode(): string {
+  const bytes = new Uint8Array(CODE_LENGTH);
+  crypto.getRandomValues(bytes);
+  let code = "";
+  for (const b of bytes) code += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  return code;
+}
+
+/** Mint a code that no existing row holds (collision odds are ~36^-8). */
+async function mintReferralCode(ctx: MutationCtx): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = randomReferralCode();
+    const clash = await ctx.db
+      .query("waitlist")
+      .withIndex("by_referralCode", (q) => q.eq("referralCode", code))
+      .first();
+    if (!clash) return code;
+  }
+  throw new Error("Could not allocate a referral code — please retry.");
+}
+
+const capped = (s: string | undefined) =>
+  s?.trim().slice(0, MAX_ATTRIBUTION) || undefined;
+
 /**
  * PUBLIC — no auth gate. Called from the landing page via useMutation.
- * Returns { duplicate } so the UI can show a friendly "already on the list".
+ * Returns { duplicate } so the UI can show a friendly "already on the list",
+ * plus the row's referralCode/position so the success card can render the
+ * share link (returned for duplicates too — returning users keep their link).
  */
 export const submit = mutation({
   args: {
@@ -27,6 +59,17 @@ export const submit = mutation({
     // Honeypot: hidden in the form, so a non-empty value means a bot filled
     // it. We report success without writing anything.
     website: v.optional(v.string()),
+    // First-touch attribution captured by lib/attribution.ts.
+    referredBy: v.optional(v.string()),
+    utmSource: v.optional(v.string()),
+    utmMedium: v.optional(v.string()),
+    utmCampaign: v.optional(v.string()),
+    utmTerm: v.optional(v.string()),
+    utmContent: v.optional(v.string()),
+    gclid: v.optional(v.string()),
+    fbclid: v.optional(v.string()),
+    referrerDomain: v.optional(v.string()),
+    landingPath: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.website) {
@@ -60,8 +103,27 @@ export const submit = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
     if (existing) {
-      return { ok: true as const, duplicate: true as const };
+      return {
+        ok: true as const,
+        duplicate: true as const,
+        referralCode: existing.referralCode,
+        position: existing.position,
+      };
     }
+
+    // Resolve the referrer BEFORE inserting so a self-referral via a
+    // just-minted code is impossible and dangling codes are simply dropped.
+    const referredBy = capped(args.referredBy)?.toLowerCase();
+    const referrer = referredBy
+      ? await ctx.db
+          .query("waitlist")
+          .withIndex("by_referralCode", (q) => q.eq("referralCode", referredBy))
+          .first()
+      : null;
+
+    const referralCode = await mintReferralCode(ctx);
+    const position = (await read(ctx, "waitlist:total")) + 1;
+    const now = Date.now();
 
     await ctx.db.insert("waitlist", {
       name,
@@ -69,11 +131,40 @@ export const submit = mutation({
       phone,
       status: "pending",
       source: args.source ?? "landing",
-      createdAt: Date.now(),
-      consentAt: Date.now(),
+      createdAt: now,
+      consentAt: now,
+      referralCode,
+      referralCount: 0,
+      position,
+      referredBy: referrer ? referredBy : undefined,
+      utmSource: capped(args.utmSource),
+      utmMedium: capped(args.utmMedium),
+      utmCampaign: capped(args.utmCampaign),
+      utmTerm: capped(args.utmTerm),
+      utmContent: capped(args.utmContent),
+      gclid: capped(args.gclid),
+      fbclid: capped(args.fbclid),
+      referrerDomain: capped(args.referrerDomain),
+      landingPath: capped(args.landingPath),
     });
     await bump(ctx, "waitlist:total", 1);
     await bump(ctx, "waitlist:pending", 1);
+
+    if (referrer && referrer.email !== email) {
+      await ctx.db.patch(referrer._id, {
+        referralCount: (referrer.referralCount ?? 0) + 1,
+      });
+      await bump(ctx, "waitlist:referred", 1);
+    }
+
+    const day = utcDay(now);
+    await bumpDaily(ctx, day, "signup", "");
+    await bumpDaily(
+      ctx,
+      day,
+      "signup_utm",
+      capped(args.utmSource)?.toLowerCase() ?? "(direct)",
+    );
 
     // Side-effects run only if this transaction commits.
     await ctx.scheduler.runAfter(0, internal.emails.send.sendWaitlistEmails, {
@@ -81,7 +172,12 @@ export const submit = mutation({
       email,
     });
 
-    return { ok: true as const, duplicate: false as const };
+    return {
+      ok: true as const,
+      duplicate: false as const,
+      referralCode,
+      position,
+    };
   },
 });
 
@@ -212,5 +308,76 @@ export const countByStatus = query({
       invited: await read(ctx, "waitlist:invited"),
       registered: await read(ctx, "waitlist:registered"),
     };
+  },
+});
+
+/** ADMIN — top referrers for the Referrals tab. */
+export const referralLeaderboard = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("waitlist")
+      .withIndex("by_referralCount")
+      .order("desc")
+      .take(20);
+    return {
+      totalReferred: await read(ctx, "waitlist:referred"),
+      leaders: rows
+        .filter((r) => (r.referralCount ?? 0) > 0)
+        .map((r) => ({
+          _id: r._id,
+          name: r.name,
+          email: r.email,
+          referralCode: r.referralCode,
+          referralCount: r.referralCount ?? 0,
+          position: r.position,
+        })),
+    };
+  },
+});
+
+/**
+ * One-time seed after deploying the referral schema — assigns positions (in
+ * signup order) and referral codes to rows that predate the feature:
+ *   npx convex run waitlist:backfillReferrals
+ * Idempotent: rows that already have values are left untouched. Uses
+ * .collect(), so run it while the table is still small (same caveat as
+ * counters:backfill).
+ */
+export const backfillReferrals = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("waitlist")
+      .withIndex("by_createdAt")
+      .order("asc")
+      .collect();
+    const taken = new Set(
+      rows.map((r) => r.referralCode).filter((c): c is string => !!c),
+    );
+    let nextPosition = 1;
+    let patched = 0;
+    for (const row of rows) {
+      const patch: {
+        position?: number;
+        referralCode?: string;
+        referralCount?: number;
+      } = {};
+      if (row.position === undefined) patch.position = nextPosition;
+      nextPosition = Math.max(nextPosition, (row.position ?? nextPosition)) + 1;
+      if (!row.referralCode) {
+        let code = randomReferralCode();
+        while (taken.has(code)) code = randomReferralCode();
+        taken.add(code);
+        patch.referralCode = code;
+      }
+      if (row.referralCount === undefined) patch.referralCount = 0;
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(row._id, patch);
+        patched++;
+      }
+    }
+    return { rows: rows.length, patched };
   },
 });

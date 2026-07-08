@@ -23,6 +23,9 @@ import { StatCard } from "@/components/admin/stat-card";
 import { DataTablePagination } from "@/components/admin/data-table-pagination";
 import { usePaginatedAdminTable } from "@/components/admin/use-paginated-admin-table";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
+import { AnalyticsTab } from "@/components/admin/analytics-tab";
+import { AcquisitionTab } from "@/components/admin/acquisition-tab";
+import { ReferralsTab } from "@/components/admin/referrals-tab";
 
 function fmt(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -221,6 +224,9 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
+            <TabsTrigger value="referrals">Referrals</TabsTrigger>
           </TabsList>
 
           <TabsContent value="waitlist">
@@ -236,6 +242,21 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
           <TabsContent value="contact">
             <div className="rounded-xl border border-border bg-card p-2">
               <ContactTab />
+            </div>
+          </TabsContent>
+          <TabsContent value="analytics">
+            <div className="rounded-xl border border-border bg-card">
+              <AnalyticsTab />
+            </div>
+          </TabsContent>
+          <TabsContent value="acquisition">
+            <div className="rounded-xl border border-border bg-card">
+              <AcquisitionTab />
+            </div>
+          </TabsContent>
+          <TabsContent value="referrals">
+            <div className="rounded-xl border border-border bg-card">
+              <ReferralsTab />
             </div>
           </TabsContent>
         </Tabs>

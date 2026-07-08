@@ -8,6 +8,7 @@ import { Reveal } from "@/components/reveal";
 export const metadata: Metadata = {
   title: "Contact — MyPA",
   description: "Get in touch with the MyPA team.",
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {
