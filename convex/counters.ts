@@ -52,6 +52,7 @@ export const backfill = internalMutation({
       "waitlist:invited": waitlist.filter((w) => w.status === "invited").length,
       "waitlist:registered": waitlist.filter((w) => w.status === "registered")
         .length,
+      "waitlist:referred": waitlist.filter((w) => w.referredBy).length,
       "feedback:total": feedback.length,
       "contact:total": contact.length,
       "contact:unhandled": contact.filter((m) => !m.handled).length,
