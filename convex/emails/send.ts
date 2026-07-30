@@ -3,6 +3,7 @@ import { components } from "../_generated/api";
 import { Resend } from "@convex-dev/resend";
 import { v } from "convex/values";
 import {
+  CONTACT_EMAIL,
   waitlistConfirmationHtml,
   feedbackThanksHtml,
   contactThanksHtml,
@@ -17,7 +18,9 @@ export const resend: Resend = new Resend(components.resend, {
   testMode: process.env.RESEND_TEST_MODE !== "false",
 });
 
-// Sender resolution, most specific wins:
+// Sender resolution, most specific wins. This must stay on a Resend-verified
+// domain — a free-mail From (gmail.com etc.) is rejected by Resend and fails
+// the recipient's DMARC check. It is a send-only identity; replies go elsewhere.
 //   1. RESEND_FROM — full header, e.g. 'MyPA <hello@mypa.computer>'
 //   2. EMAIL_DOMAIN — a Resend-verified domain; sender becomes hello@<domain>
 //   3. onboarding@resend.dev — Resend's shared test sender (works without a domain)
@@ -27,10 +30,10 @@ export const FROM =
     ? `MyPA <hello@${process.env.EMAIL_DOMAIN}>`
     : "MyPA <onboarding@resend.dev>");
 
-// Replies to automated mail should land somewhere a human reads.
-export const REPLY_TO = process.env.EMAIL_DOMAIN
-  ? [`hello@${process.env.EMAIL_DOMAIN}`]
-  : undefined;
+// Replies to automated mail should land somewhere a human reads. Deliberately
+// NOT derived from EMAIL_DOMAIN: the sending domain has no inbound MX, so
+// replies addressed there bounce. Points at the real inbox in the footer.
+export const REPLY_TO = [process.env.REPLY_TO_EMAIL ?? CONTACT_EMAIL];
 
 function adminEmails(): string[] {
   return (process.env.ADMIN_EMAILS ?? "")
