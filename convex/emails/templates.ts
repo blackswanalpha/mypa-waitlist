@@ -13,7 +13,12 @@ const PRIMARY = "#c4673e";
 const ACCENT = "#3f9152";
 const BORDER = "#3a3833";
 
-const CONTACT_EMAIL = "hello@mypa.computer";
+/**
+ * The human-reachable inbox. Must be a real mailbox that accepts inbound mail —
+ * it is printed in every email footer and used as Reply-To. A send-only domain
+ * (Resend/SES) has no MX at the apex and will silently fail to receive replies.
+ */
+export const CONTACT_EMAIL = "myexecpersonalassistant@gmail.com";
 
 function escapeHtml(input: string): string {
   return input
