@@ -75,7 +75,7 @@ const ORG_JSONLD = {
       name: "MyPA",
       url: SITE_URL,
       logo: `${SITE_URL}/favicon/web-app-manifest-512x512.png`,
-      email: "hello@mypa.computer",
+      email: "myexecpersonalassistant@gmail.com",
     },
     {
       "@type": "WebSite",
