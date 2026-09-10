@@ -26,6 +26,10 @@ yarn-error.log*
 .env
 .env.local
 .env*.local
+# A timestamped backup dodges every rule above: `.env*.local` does not match
+# `.env.local.bak.1787152611`, and one of those was sitting untracked in this
+# tree with a live CONVEX_SELF_HOSTED_ADMIN_KEY in it.
+.env*.bak*
 
 # convex (generated; recreated by `convex dev` / `convex deploy`)
 .convex/
