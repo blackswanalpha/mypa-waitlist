@@ -1,5 +1,5 @@
 import { internalMutation } from "../_generated/server";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { Resend } from "@convex-dev/resend";
 import { v } from "convex/values";
 import {
@@ -13,9 +13,14 @@ import {
 /**
  * Resend component instance. testMode only delivers to verified/test addresses;
  * flip it off in prod by setting RESEND_TEST_MODE=false (and a verified FROM).
+ * Delivery events arrive on the /resend-webhook route (http.ts) and are
+ * mirrored onto the campaign ledger by emails/events.ts.
  */
+export const RESEND_TEST_MODE = process.env.RESEND_TEST_MODE !== "false";
+
 export const resend: Resend = new Resend(components.resend, {
-  testMode: process.env.RESEND_TEST_MODE !== "false",
+  testMode: RESEND_TEST_MODE,
+  onEmailEvent: internal.emails.events.handle,
 });
 
 // Sender resolution, most specific wins. This must stay on a Resend-verified

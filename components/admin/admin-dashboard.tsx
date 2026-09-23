@@ -26,6 +26,7 @@ import { WaitlistTab } from "@/components/admin/waitlist-tab";
 import { AnalyticsTab } from "@/components/admin/analytics-tab";
 import { AcquisitionTab } from "@/components/admin/acquisition-tab";
 import { ReferralsTab } from "@/components/admin/referrals-tab";
+import { EmailTab } from "@/components/admin/email-tab";
 
 function fmt(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -224,6 +225,7 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="email">Email</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
             <TabsTrigger value="referrals">Referrals</TabsTrigger>
@@ -242,6 +244,11 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
           <TabsContent value="contact">
             <div className="rounded-xl border border-border bg-card p-2">
               <ContactTab />
+            </div>
+          </TabsContent>
+          <TabsContent value="email">
+            <div className="rounded-xl border border-border bg-card">
+              <EmailTab adminEmail={adminEmail} />
             </div>
           </TabsContent>
           <TabsContent value="analytics">

@@ -98,14 +98,78 @@ export default defineSchema({
     value: v.number(),
   }).index("by_key", ["key"]),
 
-  // One row per (campaign, recipient) — the dedupe ledger for one-off email
-  // campaigns (see emails/campaign.ts), so a re-run can never double-send.
+  // Admin-authored broadcast emails (see campaigns.ts). Content is stored as
+  // plain fields and rendered by emails/templates.ts at send time, so the admin
+  // preview and the delivered mail come from the same function.
+  campaigns: defineTable({
+    name: v.string(),
+    subject: v.string(),
+    preheader: v.string(),
+    heading: v.string(),
+    body: v.string(), // paragraphs split on blank lines; **bold**, [text](url), {{name}}
+    ctaLabel: v.optional(v.string()),
+    ctaUrl: v.optional(v.string()),
+    audience: v.object({
+      waitlist: v.array(
+        v.union(v.literal("pending"), v.literal("invited"), v.literal("registered")),
+      ),
+      feedback: v.boolean(),
+      contact: v.boolean(),
+    }),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("cancelled"),
+    ),
+    stats: v.object({
+      queued: v.number(),
+      skipped: v.number(), // suppressed, duplicate address, or already sent
+      delivered: v.number(),
+      opened: v.number(),
+      clicked: v.number(),
+      bounced: v.number(),
+      complained: v.number(),
+      failed: v.number(),
+    }),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+  }).index("by_updatedAt", ["updatedAt"]),
+
+  // One row per (campaign, recipient) — the dedupe ledger, so a re-run can
+  // never double-send. `campaign` is the campaigns _id for admin campaigns
+  // (legacy rows carry a free-form name). Delivery fields are written by the
+  // Resend webhook (emails/events.ts).
   emailSends: defineTable({
     email: v.string(),
     campaign: v.string(),
+    campaignId: v.optional(v.id("campaigns")),
     source: v.string(), // how we know them: "waitlist" | "feedback" | "contact"
     sentAt: v.number(),
-  }).index("by_campaign_email", ["campaign", "email"]),
+    emailId: v.optional(v.string()), // Resend component email id
+    status: v.optional(v.string()), // queued | sent | delivered | bounced | complained | failed | delivery_delayed
+    openedAt: v.optional(v.number()),
+    clickedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_campaign_email", ["campaign", "email"])
+    .index("by_campaign_sentAt", ["campaign", "sentAt"])
+    .index("by_emailId", ["emailId"]),
+
+  // Addresses that must never receive a broadcast again: unsubscribed via the
+  // footer link / List-Unsubscribe, hard-bounced, or marked as spam.
+  suppressions: defineTable({
+    email: v.string(),
+    reason: v.union(
+      v.literal("unsubscribed"),
+      v.literal("bounced"),
+      v.literal("complained"),
+    ),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
 
   // Contact-form messages, with a handled flag for the admin triage view.
   contactMessages: defineTable({

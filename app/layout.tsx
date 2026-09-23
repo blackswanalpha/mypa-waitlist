@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Lora, IBM_Plex_Mono, Poppins } from "next/font/google";
+import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -11,8 +11,9 @@ const inter = Inter({
   display: "swap",
 });
 
-const lora = Lora({
-  weight: ["400", "500", "600", "700"],
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
   variable: "--font-serif",
   display: "swap",
@@ -22,13 +23,6 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "500", "600"],
   subsets: ["latin"],
   variable: "--font-mono",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  weight: ["300", "400", "500", "600"],
-  subsets: ["latin"],
-  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -95,7 +89,7 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="en" className="scroll-smooth" suppressHydrationWarning>
         <body
-          className={`${inter.variable} ${lora.variable} ${ibmPlexMono.variable} ${poppins.variable} font-sans antialiased`}
+          className={`${inter.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable} font-sans antialiased`}
         >
           <script
             type="application/ld+json"

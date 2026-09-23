@@ -1,17 +1,19 @@
 /**
  * Branded HTML email templates — pure string builders (no "use node").
- * Colours approximate the site's oklch tokens as email-safe hex:
- *   bg #201f1b · card #2a2925 · text #e7e2d6 · muted #a8a297
- *   primary (terracotta) #c4673e · accent (fern) #3f9152
+ * Colours are the site's sage oklch tokens as email-safe hex:
+ *   bg #141b17 · card #1b241f · text #e3e9df · muted #97a699
+ *   primary (sage) #9cc2a4 · accent (fern) #7fae8b
+ * Also imported by the admin UI for the live preview.
  */
 
-const BG = "#201f1b";
-const CARD = "#2a2925";
-const TEXT = "#e7e2d6";
-const MUTED = "#a8a297";
-const PRIMARY = "#c4673e";
-const ACCENT = "#3f9152";
-const BORDER = "#3a3833";
+const BG = "#141b17";
+const CARD = "#1b241f";
+const TEXT = "#e3e9df";
+const MUTED = "#97a699";
+const PRIMARY = "#9cc2a4";
+const ON_PRIMARY = "#12261a";
+const ACCENT = "#7fae8b";
+const BORDER = "#2a3830";
 
 /**
  * The human-reachable inbox. Must be a real mailbox that accepts inbound mail —
@@ -32,14 +34,15 @@ function escapeHtml(input: string): string {
 function wrap(
   previewTitle: string,
   inner: string,
-  opts?: { receivingReason?: string; showUnsubscribe?: boolean },
+  opts?: { receivingReason?: string; unsubscribeUrl?: string },
 ): string {
   const reason =
     opts?.receivingReason ??
     "You're receiving this because you interacted with MyPA's early-access page.";
-  const unsubscribe = opts?.showUnsubscribe
-    ? ` If you'd rather not hear from us, just reply with
-        &ldquo;unsubscribe&rdquo; — no hard feelings, ever.`
+  const unsubscribe = opts?.unsubscribeUrl
+    ? ` Rather not hear from us?
+        <a href="${escapeHtml(opts.unsubscribeUrl)}" style="color:${MUTED};">Unsubscribe</a>
+        in one click — no hard feelings, ever.`
     : "";
   return `<!doctype html>
 <html>
@@ -91,7 +94,7 @@ function step(n: number, title: string, body: string): string {
   return `
     <tr>
       <td style="padding:10px 14px 10px 0;vertical-align:top;">
-        <span style="display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:50%;background:${PRIMARY};color:#fff;font-size:13px;font-weight:600;">${n}</span>
+        <span style="display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:50%;background:${PRIMARY};color:${ON_PRIMARY};font-size:13px;font-weight:600;">${n}</span>
       </td>
       <td style="padding:10px 0;vertical-align:top;">
         <strong style="color:${TEXT};font-size:15px;">${title}</strong><br/>
@@ -194,63 +197,80 @@ export function contactThanksHtml(name: string): string {
   );
 }
 
-/**
- * One-off appreciation / progress-update campaign, sent to everyone who has
- * ever touched the early-access page (waitlist signups, feedback senders,
- * contact messages). `source` picks the opening line that matches how we
- * know them.
- */
-export function appreciationHtml(
-  name: string | undefined,
-  source: "waitlist" | "feedback" | "contact",
-): string {
-  const safeName = escapeHtml(name || "there");
-  const opener = {
-    waitlist:
-      "you raised your hand early and joined our waitlist — before there was anything to download, install, or show off",
-    feedback:
-      "you took the time to share your honest thoughts with us — the kind of input most people never bother to give",
-    contact:
-      "you reached out and started a conversation with us — and conversations are exactly how this product is being shaped",
-  }[source];
+/** First word of a name, for "{{name}}" personalisation. */
+function firstName(name: string | undefined): string {
+  return (name ?? "").trim().split(/\s+/)[0] || "there";
+}
 
+/**
+ * Admin-authored copy → email HTML. The copy is escaped first, then a small
+ * safe subset is re-enabled: blank-line paragraphs, single-line breaks,
+ * **bold**, [text](https://url) and the {{name}} token.
+ */
+export function renderCopy(text: string, name: string | undefined): string {
+  const safe = escapeHtml(text.replaceAll("{{name}}", firstName(name)));
+  return safe
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const inline = p
+        .replace(/\*\*(.+?)\*\*/g, `<strong style="color:${PRIMARY};">$1</strong>`)
+        .replace(
+          /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+          `<a href="$2" style="color:${PRIMARY};">$1</a>`,
+        )
+        .replace(/\n/g, "<br/>");
+      return `<p style="margin:0 0 16px 0;color:${TEXT};">${inline}</p>`;
+    })
+    .join("\n");
+}
+
+export type CampaignContent = {
+  subject: string;
+  preheader: string;
+  heading: string;
+  body: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+};
+
+/**
+ * One broadcast email. Used by the send pipeline AND the admin live preview,
+ * so what the admin sees is exactly what goes out.
+ */
+export function campaignHtml(
+  c: CampaignContent,
+  recipient: { name?: string; unsubscribeUrl?: string },
+): string {
+  const heading = escapeHtml(
+    c.heading.replaceAll("{{name}}", firstName(recipient.name)),
+  );
+  const cta =
+    c.ctaLabel && c.ctaUrl && /^https?:\/\//.test(c.ctaUrl)
+      ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px 0;">
+      <tr>
+        <td style="border-radius:999px;background:${PRIMARY};">
+          <a href="${escapeHtml(c.ctaUrl)}" style="display:inline-block;padding:12px 24px;color:${ON_PRIMARY};font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">${escapeHtml(c.ctaLabel)}</a>
+        </td>
+      </tr>
+    </table>`
+      : "";
   return wrap(
-    "A heartfelt thank-you from the MyPA team",
+    c.preheader || c.subject,
     `
-    <h1 style="margin:0 0 16px 0;font-size:26px;font-weight:600;color:${TEXT};">
-      ${safeName}, we owe you a proper thank-you.
+    <h1 style="margin:0 0 16px 0;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:400;line-height:1.25;color:${TEXT};">
+      ${heading}
     </h1>
-    <p style="margin:0 0 16px 0;color:${TEXT};">
-      Some time ago, ${opener}. We've been heads-down building since, and we
-      realised we never stopped to say it plainly:
-      <strong style="color:${PRIMARY};">thank you for believing in MyPA.</strong>
-    </p>
-    <p style="margin:0 0 16px 0;color:${TEXT};">
-      If it's been a while, here's the one-line refresher: MyPA is a calm,
-      voice-first personal assistant. You say
-      <strong style="color:${PRIMARY};">&ldquo;Hey MyPA&rdquo;</strong> and it
-      plans, schedules, and gets things done — so your day runs itself and
-      you get to live it.
-    </p>
-    <p style="margin:0 0 8px 0;color:${TEXT};font-weight:600;">
-      Where things stand, honestly:
-    </p>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
-      ${step(1, "We're building toward launch", "The core experience — voice, planning, scheduling — is coming together every week.")}
-      ${step(2, "Early access opens in waves", "We're inviting people gradually so every single person gets a great first experience.")}
-      ${step(3, "You're already on our minds", "When your wave opens, the invite comes straight to this inbox. Nothing for you to do.")}
-    </table>
-    <p style="margin:16px 0 0 0;color:${TEXT};">
-      Products get built by teams, but they get <em>willed into existence</em>
-      by early believers. That's you. We're grateful, and we intend to make
-      the wait worth it.
-    </p>
+    ${renderCopy(c.body, recipient.name)}
+    ${cta}
     ${signOff()}
     `,
     {
       receivingReason:
-        "You're receiving this one-time note because you joined the MyPA waitlist or wrote to us via the early-access page.",
-      showUnsubscribe: true,
+        "You're receiving this because you joined the MyPA waitlist or wrote to us via the early-access page.",
+      unsubscribeUrl: recipient.unsubscribeUrl,
     },
   );
 }

@@ -38,6 +38,12 @@ services:
       # The URLs *clients outside the container* use to reach this deployment.
       # CONVEX_SITE_ORIGIN is also the JWT issuer domain Convex Auth validates
       # against (auth.config.ts), so it must stay consistent once auth keys are set.
+      # The backend fetches its own JWKS from that origin, so it must resolve
+      # INSIDE the container too. The container always listens on 3210/3211; if
+      # CONVEX_SITE_PORT moves the host port, 127.0.0.1:<port> is dead inside and
+      # every admin login is rejected. Then set CONVEX_SITE_ORIGIN to the
+      # container's own port, http://127.0.0.1:3211 — only the backend fetches
+      # the issuer URL. (HTTP-action links, e.g. unsubscribe, then name 3211.)
       - CONVEX_CLOUD_ORIGIN=${CONVEX_CLOUD_ORIGIN:-http://127.0.0.1:${CONVEX_PORT:-3210}}
       - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:-http://127.0.0.1:${CONVEX_SITE_PORT:-3211}}
       - INSTANCE_NAME
