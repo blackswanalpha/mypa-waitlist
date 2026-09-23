@@ -54,7 +54,13 @@ npx convex env set RESEND_API_KEY "re_xxxxxxxx"        # from resend.com
 # optional in prod (defaults: test mode + onboarding@resend.dev sender):
 # npx convex env set RESEND_TEST_MODE "false"
 # npx convex env set RESEND_FROM "MyPA <hello@yourdomain.com>"  # must be a verified Resend domain
+# campaign delivery tracking: add a Resend webhook to {CONVEX_SITE_URL}/resend-webhook, then
+# npx convex env set RESEND_WEBHOOK_SECRET "whsec_xxxxxxxx"
+# optional: key for signed unsubscribe links (defaults to RESEND_API_KEY)
+# npx convex env set UNSUBSCRIBE_SECRET "$(openssl rand -hex 24)"
 ```
+
+The admin **Email** tab shows which of these are missing.
 
 ## 4. Run
 
@@ -87,17 +93,21 @@ create an account or sign in.
 - **Waitlist** (`/#waitlist`): submit name + email → success card + toast.
   Resubmit the same email → "already on the list". Row appears live in the admin
   Waitlist tab. Check Resend for the confirmation + admin-notify emails.
-- **Feedback** (`/#feedback`): submit a message (+ optional rating) → appears in
+- **Feedback** (`/contact#feedback`): submit a message (+ optional rating) → appears in
   the Feedback tab.
 - **Contact** (`/contact`): submit → appears in the Contact tab; click
   **Mark handled** → flips live.
 - **Admin auth**: sign out → `/admin` shows the login. A non-allowlisted account
   can't be created, and admin queries reject non-admins (`Unauthorized`).
 
-> In Resend **test mode** (the default), emails only deliver to your verified
-> address — the admin-notify will arrive, an arbitrary signer's confirmation
-> won't. That's expected; flip `RESEND_TEST_MODE=false` with a verified domain
-> for real delivery.
+- **Email campaigns** (admin → Email): write a draft, check the live preview,
+  send a test, then send to the audience. Recipients, delivery, opens, clicks,
+  bounces and unsubscribes appear on the campaign as Resend reports them.
+
+> In Resend **test mode** (the default) the component **rejects** every address
+> outside `@resend.dev` (e.g. `delivered@resend.dev`) — signup confirmations and
+> admin notifications are not sent, and campaigns refuse to start. Set
+> `RESEND_TEST_MODE=false` with a verified domain for real delivery.
 
 ## 6b. Whitelisting & backend sync
 
