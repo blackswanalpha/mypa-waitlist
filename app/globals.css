@@ -16,47 +16,48 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Base Colors - Zinc/Slate Clean */
-  --background: oklch(0.9818 0.0054 95.0986);
-  --foreground: oklch(0.3438 0.0269 95.7226);
+  /* Sage — light */
+  --background: oklch(0.972 0.008 135);
+  --foreground: oklch(0.27 0.025 158);
 
   /* UI Elements */
-  --card: oklch(0.9818 0.0054 95.0986);
-  --card-foreground: oklch(0.1908 0.0020 106.5859);
-  --popover: oklch(1.0000 0 0);
-  --popover-foreground: oklch(0.2671 0.0196 98.9390);
+  --card: oklch(0.985 0.006 135);
+  --card-foreground: oklch(0.24 0.025 158);
+  --popover: oklch(0.99 0.004 135);
+  --popover-foreground: oklch(0.24 0.025 158);
 
   /* Brand Colors */
-  --primary: oklch(0.6171 0.1375 39.0427);
-  --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.9245 0.0138 92.9892);
-  --secondary-foreground: oklch(0.4334 0.0177 98.6048);
+  --primary: oklch(0.45 0.065 155);
+  --primary-foreground: oklch(0.98 0.01 130);
+  --secondary: oklch(0.93 0.018 140);
+  --secondary-foreground: oklch(0.32 0.03 155);
 
   /* Accents */
-  --muted: oklch(0.9341 0.0153 90.2390);
-  --muted-foreground: oklch(0.6059 0.0075 97.4233);
-  --accent: oklch(0.9245 0.0138 92.9892);
-  --accent-foreground: oklch(0.2671 0.0196 98.9390);
+  --muted: oklch(0.935 0.014 138);
+  --muted-foreground: oklch(0.5 0.022 150);
+  --accent: oklch(0.92 0.022 140);
+  --accent-foreground: oklch(0.27 0.025 158);
 
   /* Semantic Colors */
-  --destructive: oklch(0.1908 0.0020 106.5859);
+  --destructive: oklch(0.55 0.17 28);
   --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.8847 0.0069 97.3627);
-  --input: oklch(0.7621 0.0156 98.3528);
-  --ring: oklch(0.6171 0.1375 39.0427);
+  --border: oklch(0.87 0.015 140);
+  --input: oklch(0.8 0.02 140);
+  --ring: oklch(0.45 0.065 155);
 
   /* Custom Theme Colors */
-  --color-fern: oklch(0.55 0.14 140);
-  --color-fern-accent: oklch(91.747% 0.08957 139.691);
+  --color-fern: oklch(0.5 0.08 150);
+  --color-fern-accent: oklch(0.9 0.05 140);
+  --color-sage: oklch(0.74 0.055 145);
   --color-coral: oklch(0.75 0.18 35);
   --color-ocean: oklch(0.60 0.12 240);
 
   /* Charts */
-  --chart-1: oklch(0.5583 0.1276 42.9956);
-  --chart-2: oklch(0.6898 0.1581 290.4107);
-  --chart-3: oklch(0.8816 0.0276 93.1280);
-  --chart-4: oklch(0.8822 0.0403 298.1792);
-  --chart-5: oklch(0.5608 0.1348 42.0584);
+  --chart-1: oklch(0.45 0.065 155);
+  --chart-2: oklch(0.68 0.07 145);
+  --chart-3: oklch(0.86 0.04 130);
+  --chart-4: oklch(0.6 0.06 200);
+  --chart-5: oklch(0.55 0.09 115);
 
   /* Typography & Spacing */
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -79,47 +80,48 @@
 }
 
 .dark {
-  /* Base Colors - Premium Dark */
-  --background: oklch(0.2679 0.0036 106.6427);
-  --foreground: oklch(0.8074 0.0142 93.0137);
+  /* Sage — dark (deep forest ink) */
+  --background: oklch(0.185 0.014 160);
+  --foreground: oklch(0.9 0.018 130);
 
   /* UI Elements */
-  --card: oklch(0.2679 0.0036 106.6427);
-  --card-foreground: oklch(0.9818 0.0054 95.0986);
-  --popover: oklch(0.3085 0.0035 106.6039);
-  --popover-foreground: oklch(0.9211 0.0040 106.4781);
+  --card: oklch(0.215 0.016 160);
+  --card-foreground: oklch(0.93 0.016 130);
+  --popover: oklch(0.235 0.017 160);
+  --popover-foreground: oklch(0.93 0.016 130);
 
   /* Brand Colors */
-  --primary: oklch(0.6724 0.1308 38.7559);
-  --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.9818 0.0054 95.0986);
-  --secondary-foreground: oklch(0.3085 0.0035 106.6039);
+  --primary: oklch(0.8 0.07 145);
+  --primary-foreground: oklch(0.2 0.03 158);
+  --secondary: oklch(0.27 0.02 158);
+  --secondary-foreground: oklch(0.9 0.018 130);
 
   /* Accents */
-  --muted: oklch(0.2213 0.0038 106.7070);
-  --muted-foreground: oklch(0.7713 0.0169 99.0657);
-  --accent: oklch(0.2130 0.0078 95.4245);
-  --accent-foreground: oklch(0.9663 0.0080 98.8792);
+  --muted: oklch(0.24 0.016 160);
+  --muted-foreground: oklch(0.7 0.025 140);
+  --accent: oklch(0.27 0.022 158);
+  --accent-foreground: oklch(0.93 0.016 130);
 
   /* Semantic Colors */
-  --destructive: oklch(0.6368 0.2078 25.3313);
+  --destructive: oklch(0.66 0.17 28);
   --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.3618 0.0101 106.8928);
-  --input: oklch(0.4336 0.0113 100.2195);
-  --ring: oklch(0.6724 0.1308 38.7559);
+  --border: oklch(0.3 0.02 158);
+  --input: oklch(0.36 0.022 155);
+  --ring: oklch(0.8 0.07 145);
 
   /* Custom Theme Colors */
-  --color-fern: oklch(0.55 0.14 140);
-  --color-fern-accent: oklch(91.747% 0.08957 139.691);
+  --color-fern: oklch(0.78 0.08 145);
+  --color-fern-accent: oklch(0.9 0.05 140);
+  --color-sage: oklch(0.74 0.055 145);
   --color-coral: oklch(0.75 0.18 35);
   --color-ocean: oklch(0.60 0.12 240);
 
   /* Charts */
-  --chart-1: oklch(0.5583 0.1276 42.9956);
-  --chart-2: oklch(0.6898 0.1581 290.4107);
-  --chart-3: oklch(0.2130 0.0078 95.4245);
-  --chart-4: oklch(0.3074 0.0516 289.3230);
-  --chart-5: oklch(0.5608 0.1348 42.0584);
+  --chart-1: oklch(0.8 0.07 145);
+  --chart-2: oklch(0.62 0.07 160);
+  --chart-3: oklch(0.34 0.025 158);
+  --chart-4: oklch(0.7 0.06 200);
+  --chart-5: oklch(0.72 0.09 115);
 
   --radius: 0.5rem;
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
@@ -130,6 +132,21 @@
   --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+}
+
+/* Autoplay timer in the use-case device's groove; duration and play state
+   are set inline by the carousel. */
+@theme {
+  --animate-groove: groove 7s linear forwards;
+
+  @keyframes groove {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
 }
 
 @theme inline {
@@ -145,6 +162,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-fern: var(--color-fern);
   --color-fern-accent: var(--color-fern-accent);
+  --color-sage: var(--color-sage);
   --color-coral: var(--color-coral);
   --color-ocean: var(--color-ocean);
   --color-muted: var(--muted);
@@ -164,7 +182,6 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-  --font-poppins: var(--font-poppins);
   --radius: 0.5rem;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -230,6 +247,38 @@
 }
 
 @layer utilities {
+  /* Film grain for the voice panel — an inline SVG turbulence tile. */
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  }
+
+  /* Staggered entrance for the transcript lines. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-rise {
+    opacity: 0;
+    animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise {
+      opacity: 1;
+      animation: none;
+    }
+    .animate-voicebar {
+      animation: none;
+    }
+  }
+
   /* Equalizer bars for the voice-first feature tile */
   @keyframes voicebar {
     0%,

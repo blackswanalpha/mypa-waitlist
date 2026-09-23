@@ -3,6 +3,7 @@ import { Mail, MessageCircle } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ContactForm } from "@/components/contact-form";
+import { FeedbackForm } from "@/components/feedback-form";
 import { Reveal } from "@/components/reveal";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-background selection:bg-fern/20">
+    <div className="flex min-h-screen flex-col bg-background selection:bg-primary/25">
       <Header />
 
       <main className="flex-1">
@@ -22,7 +23,7 @@ export default function ContactPage() {
             <p className="font-mono text-xs uppercase tracking-widest text-fern">
               Contact
             </p>
-            <h1 className="mt-3 font-serif text-4xl font-light tracking-tight text-foreground md:text-5xl">
+            <h1 className="mt-3 font-serif text-4xl tracking-tight text-foreground md:text-5xl">
               Let&rsquo;s talk.
             </h1>
             <p className="mt-4 max-w-md text-muted-foreground">
@@ -55,6 +56,28 @@ export default function ContactPage() {
             <ContactForm />
           </Reveal>
         </div>
+
+        <section
+          id="feedback"
+          className="scroll-mt-8 border-t border-border/70"
+        >
+          <div className="container mx-auto grid items-start gap-10 px-6 py-16 lg:grid-cols-2 lg:gap-16 lg:px-12 lg:py-24">
+            <Reveal>
+              <p className="font-mono text-xs uppercase tracking-widest text-fern">
+                Feedback
+              </p>
+              <h2 className="mt-3 font-serif text-4xl tracking-tight text-foreground md:text-5xl">
+                Shape what we build.
+              </h2>
+              <p className="mt-4 max-w-md text-muted-foreground">
+                What would make MyPA a no-brainer for you? We read every note.
+              </p>
+            </Reveal>
+            <Reveal y={24}>
+              <FeedbackForm />
+            </Reveal>
+          </div>
+        </section>
       </main>
 
       <Footer />
