@@ -15,12 +15,15 @@ const LOOPS = new Set(["listen", "think"]);
 
 /** Exponential smoothing time constant for the pointer lean, in ms. */
 const LEAN_TAU = 160;
+/** How often the resting face blinks. */
+const BLINK_MS = 8000;
 
 /**
  * Glance, the bot from Motion Studio (motionstudio/bot, concept O1), merged
  * into one Lottie by scripts/build-bot.mjs. It arrives once, then follows the
  * form: it listens while you type, thinks while the request is in flight and
- * smiles when you are on the list.
+ * smiles when you are on the list. At rest it blinks every eight seconds, and
+ * a tap makes it squash, ring and answer with its speaking face.
  *
  * Around the character, three layers of motion that never fight each other:
  * a slow float and breath on the compositor, a lean toward the pointer that
@@ -30,15 +33,22 @@ const LEAN_TAU = 160;
  * holds Motion Studio's declared frame for each state and drops the rest.
  */
 export function GlanceBot({ mood, className }: { mood: BotMood; className?: string }) {
+  const root = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const lean = useRef<HTMLDivElement>(null);
   const anim = useRef<AnimationItem | null>(null);
   const segments = useRef<Record<string, Segment>>({});
   const playing = useRef<string | null>(null);
   const pending = useRef<BotMood | null>(null);
+  const moodNow = useRef<BotMood>(mood);
   const reduced = useRef(false);
   const [ready, setReady] = useState(false);
   const [doneBeat, setDoneBeat] = useState(0);
+  const [tapBeat, setTapBeat] = useState(0);
+
+  useEffect(() => {
+    moodNow.current = mood;
+  }, [mood]);
 
   // Load the player and the merged file once, then play the entrance.
   useEffect(() => {
@@ -69,6 +79,17 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
         pending.current = null;
         apply(next);
       });
+      // A once segment finished. The entrance, a blink and a tap reply all
+      // hand back to whatever the form is doing now.
+      a.addEventListener("complete", () => {
+        const p = playing.current;
+        if (p === "arrive" || p === "blink") {
+          playing.current = "idle";
+          if (moodNow.current !== "idle") apply(moodNow.current);
+        } else if (p === "speak") {
+          resume();
+        }
+      });
       anim.current = a;
       setReady(true);
     })();
@@ -78,7 +99,7 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
       anim.current?.destroy();
       anim.current = null;
     };
-    // apply only reads refs.
+    // apply and resume only read refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -98,18 +119,37 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
     a.playSegments([seg.start, end], true);
   }
 
+  /** Hold a frame without playing anything. */
+  function hold(state: string, frame: number) {
+    if (!anim.current) return;
+    playing.current = state;
+    anim.current.loop = false;
+    anim.current.goToAndStop(frame, true);
+  }
+
+  /** The entrance's resting face. */
+  function rest() {
+    const arrive = segments.current.arrive;
+    if (arrive) hold("idle", arrive.start + arrive.frames - 1);
+  }
+
   function apply(next: BotMood) {
     if (next === "idle") {
-      // Idle is the entrance's resting face. Never replay the entrance.
-      const arrive = segments.current.arrive;
-      if (playing.current === "arrive" || !arrive || !anim.current) return;
-      playing.current = "idle";
-      anim.current.loop = false;
-      anim.current.goToAndStop(arrive.start + arrive.frames - 1, true);
+      // Never replay the entrance; it ends on the resting face by itself.
+      if (playing.current !== "arrive") rest();
       return;
     }
     if (next === "done") setDoneBeat((n) => n + 1);
     play(next);
+  }
+
+  /** Back to the form's state after a tap, without replaying a once state's entrance. */
+  function resume() {
+    const m = moodNow.current;
+    const seg = segments.current[m];
+    if (m === "idle" || !seg) rest();
+    else if (seg.loop) play(m);
+    else hold(m, seg.start + seg.frames - 1);
   }
 
   // First paint: the entrance. Afterwards, follow the form.
@@ -130,6 +170,27 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mood, ready]);
+
+  // Blink at rest: only from the resting face, never over another state.
+  useEffect(() => {
+    if (!ready || reduced.current) return;
+    const id = window.setInterval(() => {
+      if (document.hidden || moodNow.current !== "idle" || playing.current !== "idle") return;
+      play("blink");
+      // A count on the element, so a blink is observable without sampling frames.
+      if (root.current) root.current.dataset.blinks = String(Number(root.current.dataset.blinks ?? 0) + 1);
+    }, BLINK_MS);
+    return () => window.clearInterval(id);
+  }, [ready]);
+
+  /** A tap: squash and ring, then the speaking face once. Ignored while it thinks. */
+  const onTap = () => {
+    if (!anim.current || moodNow.current === "think") return;
+    setTapBeat((n) => n + 1);
+    if (reduced.current) return;
+    pending.current = null;
+    play("speak");
+  };
 
   // Lean toward a fine pointer. Eased per frame, stops when settled.
   useEffect(() => {
@@ -183,13 +244,10 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
   }, []);
 
   return (
-    <div
-      aria-hidden
-      data-mood={mood}
-      className={cn("pointer-events-none relative grid h-40 w-44 place-items-center", className)}
-    >
+    <div ref={root} data-mood={mood} className={cn("pointer-events-none relative grid h-40 w-44 place-items-center", className)}>
       {/* Listening: contour rings in the head's own squircle, rising outward. */}
       <div
+        aria-hidden
         className={cn(
           "absolute inset-0 grid place-items-center transition-opacity duration-500 ease-out motion-reduce:hidden",
           mood === "listen" ? "opacity-100" : "opacity-0",
@@ -209,6 +267,7 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
 
       {/* Thinking: one ink mark orbiting on a hairline. Ink only — sage is earned. */}
       <div
+        aria-hidden
         className={cn(
           "absolute h-[9.25rem] w-[9.25rem] rounded-full border border-dashed border-slate-200 transition-[opacity,transform] duration-500 ease-out motion-reduce:hidden",
           mood === "think" ? "scale-100 opacity-100" : "scale-90 opacity-0",
@@ -222,19 +281,37 @@ export function GlanceBot({ mood, className }: { mood: BotMood; className?: stri
         </span>
       </div>
 
-      {/* Done: a single sage ring, once. */}
+      {/* Done: a single sage ring, once. A tap: a single ink ring. */}
       {doneBeat > 0 && (
         <span
-          key={doneBeat}
+          key={`d${doneBeat}`}
+          aria-hidden
           className="bot-done absolute h-[5.5rem] w-[5.5rem] rounded-[36%] border-[1.5px] border-[#22c55e] motion-reduce:hidden"
         />
       )}
+      {tapBeat > 0 && (
+        <span
+          key={`t${tapBeat}`}
+          aria-hidden
+          className="bot-done absolute h-[5.5rem] w-[5.5rem] rounded-[36%] border border-slate-300 motion-reduce:hidden"
+        />
+      )}
 
-      <div ref={lean} className="will-change-transform">
-        <div className="bot-float motion-reduce:animate-none">
-          <div ref={host} className="bot-breathe h-32 w-32 motion-reduce:animate-none" />
+      <button
+        type="button"
+        onClick={onTap}
+        aria-label="Say hello to MyPA"
+        className="pointer-events-auto cursor-pointer rounded-[36%] [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-offset-[-12px] focus-visible:outline-foreground"
+      >
+        <div ref={lean} className="will-change-transform">
+          {/* Alternating names restart the squash on every tap without remounting the player. */}
+          <div className={cn(tapBeat > 0 && (tapBeat % 2 ? "bot-boop-a" : "bot-boop-b"))}>
+            <div className="bot-float">
+              <div ref={host} aria-hidden className="bot-breathe h-32 w-32" />
+            </div>
+          </div>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
