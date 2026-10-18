@@ -6,8 +6,11 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { SLIDES } from "@/lib/carousel";
 import { cn } from "@/lib/utils";
 
-const DWELL_MS = 6500;
-const TURN_MS = 1100;
+// Everything here runs 20% slower than first shipped (×1.25).
+const DWELL_MS = 8125;
+const TURN_MS = 1375;
+const SETTLE_MS = 2000;
+const CAPTION_MS = 1000;
 /** In-out for the wipe so it starts and lands softly, like a page turned by hand. */
 const TURN_EASE = "cubic-bezier(0.65, 0, 0.35, 1)";
 const SETTLE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -132,7 +135,7 @@ export function DayCarousel() {
                 opacity: on || under ? 1 : 0,
                 ...(on && prev !== null
                   ? reduced
-                    ? { animation: "rise-fade 240ms ease-out both" }
+                    ? { animation: "rise-fade 300ms ease-out both" }
                     : { animation: `${dir > 0 ? "slide-reveal" : "slide-reveal-back"} ${TURN_MS}ms ${TURN_EASE} both` }
                   : null),
               }}
@@ -145,7 +148,7 @@ export function DayCarousel() {
                 style={
                   // Keyed to the turn, not to prev: the settle outlasts the wipe.
                   on && turn > 0 && !reduced
-                    ? { animation: `${dir > 0 ? "slide-settle" : "slide-settle-back"} ${TURN_MS + 500}ms ${SETTLE_EASE} both` }
+                    ? { animation: `${dir > 0 ? "slide-settle" : "slide-settle-back"} ${SETTLE_MS}ms ${SETTLE_EASE} both` }
                     : undefined
                 }
               >
@@ -180,10 +183,10 @@ export function DayCarousel() {
           <p className="font-mono text-[11px] tabular-nums tracking-[0.08em] text-muted-foreground">
             {pad(active + 1)} <span className="text-slate-300">/</span> {pad(count)}
           </p>
-          <h3 key={`t${active}`} className="animate-rise mt-2 text-[17px] font-medium tracking-[-0.015em] text-foreground" style={{ animationDelay: reduced ? "0ms" : "260ms" }}>
+          <h3 key={`t${active}`} className="animate-rise mt-2 text-[17px] font-medium tracking-[-0.015em] text-foreground" style={{ animationDelay: reduced ? "0ms" : "325ms", animationDuration: `${CAPTION_MS}ms` }}>
             {slide.title}
           </h3>
-          <p key={`b${active}`} className="animate-rise mt-1 max-w-md text-[14px] leading-relaxed text-muted-foreground" style={{ animationDelay: reduced ? "0ms" : "360ms" }}>
+          <p key={`b${active}`} className="animate-rise mt-1 max-w-md text-[14px] leading-relaxed text-foreground" style={{ animationDelay: reduced ? "0ms" : "450ms", animationDuration: `${CAPTION_MS}ms` }}>
             {slide.body}
           </p>
         </div>
