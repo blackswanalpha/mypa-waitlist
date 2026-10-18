@@ -18,4 +18,9 @@ export default defineConfig({
     // The full Chromium build in headless mode; no separate headless shell.
     channel: "chromium",
   },
+  projects: [
+    { name: "scenarios", testIgnore: /perf\.spec\.ts/ },
+    // Frame rate, CLS and LCP run last and alone so parallel browsers do not skew them.
+    { name: "perf", testMatch: /perf\.spec\.ts/, dependencies: ["scenarios"] },
+  ],
 });

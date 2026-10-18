@@ -284,6 +284,10 @@ test.describe("submission", () => {
     await page.locator('label[for="agreed"]').click();
     await page.locator(`${FORM} button[type=submit]`).click();
     await expect(page.locator('[role="status"]')).toContainText("on the list", { timeout: 15_000 });
+    // A first visit has no stored theme; the toast must still be light on the white page.
+    await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-sonner-theme", "light");
+    const [r, g, b] = await rgbOf(page, "[data-sonner-toast]", "backgroundColor");
+    expect(Math.min(r, g, b)).toBeGreaterThan(200);
   });
 
   test("joining twice is a duplicate, not an error", async ({ page }) => {
@@ -469,26 +473,6 @@ test.describe("bot", () => {
       expect(box.x + box.width).toBeLessThanOrEqual(w);
     });
 
-    test(`stays near 60fps while listening at ${w}`, async ({ page }) => {
-      await page.setViewportSize({ width: w, height: h });
-      await home(page);
-      await page.locator("#email").focus();
-      await page.keyboard.type("ada");
-      const frames = await page.evaluate(
-        () =>
-          new Promise<number>((resolve) => {
-            let n = 0;
-            const start = performance.now();
-            const tick = (t: number) => {
-              n++;
-              if (t - start < 1000) requestAnimationFrame(tick);
-              else resolve(n);
-            };
-            requestAnimationFrame(tick);
-          }),
-      );
-      expect(frames).toBeGreaterThanOrEqual(50);
-    });
   }
 
   test("reduced motion holds a still frame and drops the float", async ({ page }) => {
@@ -535,36 +519,6 @@ test.describe("load", () => {
     [375, 812],
     [1440, 900],
   ] as const) {
-    test(`CLS stays under 0.1 at ${w}`, async ({ page }) => {
-      await page.setViewportSize({ width: w, height: h });
-      await page.addInitScript(() => {
-        (window as unknown as { __cls: number }).__cls = 0;
-        new PerformanceObserver((l) => {
-          for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
-            if (!e.hadRecentInput) (window as unknown as { __cls: number }).__cls += e.value;
-          }
-        }).observe({ type: "layout-shift", buffered: true });
-      });
-      await home(page);
-      await page.waitForTimeout(2500);
-      expect(await page.evaluate(() => (window as unknown as { __cls: number }).__cls)).toBeLessThan(0.1);
-    });
-
-    test(`largest contentful paint under 2.5s at ${w}`, async ({ page }) => {
-      await page.setViewportSize({ width: w, height: h });
-      await home(page);
-      const lcp = await page.evaluate(
-        () =>
-          new Promise<number>((resolve) => {
-            new PerformanceObserver((l) => {
-              const e = l.getEntries();
-              resolve(e[e.length - 1].startTime);
-            }).observe({ type: "largest-contentful-paint", buffered: true });
-          }),
-      );
-      expect(lcp).toBeLessThan(2500);
-    });
-
     test(`no console errors on load at ${w}`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       const errors: string[] = [];
