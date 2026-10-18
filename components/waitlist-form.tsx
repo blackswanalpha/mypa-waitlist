@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,28 +11,21 @@ import { api } from "@/convex/_generated/api";
 import { getAttribution } from "@/lib/attribution";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import type { BotMood } from "@/components/glance-bot";
 import { cn } from "@/lib/utils";
 
-/** Underline field — the form sits on the page, not in a card. */
-const FIELD =
-  "peer w-full border-0 border-b border-input bg-transparent px-0 pb-2.5 pt-5 text-base text-foreground outline-none transition-colors placeholder:text-transparent focus:border-primary aria-[invalid=true]:border-destructive";
-const LABEL =
-  "pointer-events-none absolute left-0 top-5 origin-left text-base text-muted-foreground transition-all peer-focus:top-0 peer-focus:text-[11px] peer-focus:uppercase peer-focus:tracking-[0.18em] peer-focus:text-primary peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:uppercase peer-[:not(:placeholder-shown)]:tracking-[0.18em]";
 const CHIP =
-  "rounded-full border border-border px-3.5 py-1.5 text-xs text-foreground/80 transition-colors hover:border-primary hover:text-primary";
+  "inline-flex h-11 items-center rounded-full border border-border px-4 text-[13px] text-foreground/80 transition-colors duration-200 hover:border-foreground/40 hover:text-foreground";
 
 const schema = z.object({
-  name: z
-    .string()
-    .min(2, { message: "Please enter your name" })
-    .max(100, { message: "That name is too long" }),
   email: z
     .string()
-    .email({ message: "Please enter a valid email address" })
-    .max(254, { message: "That email is too long" }),
-  phone: z.string().max(32, { message: "That phone number is too long" }).optional(),
+    .trim()
+    .min(1, { message: "Add your email to join." })
+    .email({ message: "That email doesn’t look right." })
+    .max(254, { message: "That email is too long." }),
   agreed: z.boolean().refine((v) => v, {
-    message: "Please accept to continue",
+    message: "Tick the box so we can email your invite.",
   }),
   // Honeypot — hidden from real users; bots that fill it get a silent no-op.
   website: z.string().optional(),
@@ -49,10 +42,18 @@ function shareLink(referralCode: string): string {
   return `${origin}/?ref=${referralCode}`;
 }
 
-export function WaitlistForm() {
+/**
+ * The waitlist as one input bar: email and the button share a single pill,
+ * consent sits on the line beneath it. `onMood` tells the bot above what the
+ * form is doing, so it listens while you type and thinks while it submits.
+ */
+export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
   const submit = useMutation(api.waitlist.submit);
   const [done, setDone] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // After a rejected submit the bot holds its reaction until you type again;
+  // the form refocusing the field must not read as "listening".
+  const holding = useRef(false);
   const [referral, setReferral] = useState<{
     referralCode?: string;
     position?: number;
@@ -60,16 +61,15 @@ export function WaitlistForm() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", phone: "", agreed: false, website: "" },
+    defaultValues: { email: "", agreed: false, website: "" },
   });
 
   const onSubmit = async (data: Values) => {
     setServerError(null);
+    onMood?.("think");
     try {
       const res = await submit({
-        name: data.name,
         email: data.email,
-        phone: data.phone || undefined,
         source: "landing",
         agreed: data.agreed,
         website: data.website || undefined,
@@ -82,11 +82,14 @@ export function WaitlistForm() {
       }
       setReferral({ referralCode: res.referralCode, position: res.position });
       setDone(true);
+      onMood?.("done");
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Something went wrong. Please try again.";
       setServerError(message);
       toast.error(message);
+      holding.current = true;
+      onMood?.("failed");
     }
   };
 
@@ -105,29 +108,27 @@ export function WaitlistForm() {
     const encodedText = encodeURIComponent(SHARE_TEXT);
 
     return (
-      <div className="rounded-3xl border border-primary/25 bg-primary/[0.06] p-6 sm:p-7">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Check className="h-4 w-4" />
+      <div className="animate-rise rounded-[1.75rem] border border-border p-5 text-left sm:p-6" role="status">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fern text-white">
+            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
           </span>
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-primary">
-            Your place is saved
-          </p>
+          <p className="text-[13px] font-medium text-fern">Your place is saved</p>
         </div>
-        <h3 className="mt-4 font-serif text-3xl leading-tight text-foreground">
+        <h2 className="mt-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-foreground">
           {referral.position
-            ? <>You&rsquo;re <em className="text-primary">N&deg;&nbsp;{referral.position}</em> on the list.</>
-            : "You\u2019re on the list."}
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
+            ? <>You&rsquo;re N&deg;&nbsp;{referral.position} on the list.</>
+            : "You’re on the list."}
+        </h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
           A confirmation is on its way to your inbox. Your invite follows the
           moment MyPA is ready.
         </p>
 
         {link && (
-          <div className="mt-6">
-            <p className="text-sm text-foreground">Bring someone along:</p>
-            <div className="mt-2 flex items-center gap-2 rounded-full border border-border bg-background/60 py-1 pl-4 pr-1">
+          <div className="mt-5">
+            <p className="text-[13px] text-foreground">Bring someone along</p>
+            <div className="mt-2 flex h-14 items-center gap-2 rounded-full border border-input pl-4 pr-1.5">
               <input
                 readOnly
                 value={link}
@@ -139,7 +140,7 @@ export function WaitlistForm() {
                 type="button"
                 onClick={copyLink}
                 aria-label="Copy referral link"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/85"
               >
                 <Copy className="h-3.5 w-3.5" />
               </button>
@@ -162,133 +163,101 @@ export function WaitlistForm() {
   }
 
   const errors = form.formState.errors;
+  const submitting = form.formState.isSubmitting;
+  const message = errors.email?.message ?? errors.agreed?.message ?? serverError;
+  const email = form.register("email");
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="relative">
-          <input
-            id="name"
-            placeholder="Full name"
-            autoComplete="name"
-            className={FIELD}
-            aria-invalid={!!errors.name}
-            aria-describedby={errors.name ? "name-error" : undefined}
-            {...form.register("name")}
-          />
-          <label htmlFor="name" className={LABEL}>Full name</label>
-          {errors.name && (
-            <p id="name-error" role="alert" className="mt-1.5 text-xs text-destructive">
-              {errors.name.message}
-            </p>
-          )}
-        </div>
-
-        <div className="relative">
-          <input
-            id="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="Email"
-            className={FIELD}
-            aria-invalid={!!errors.email}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            {...form.register("email")}
-          />
-          <label htmlFor="email" className={LABEL}>Email</label>
-          {errors.email && (
-            <p id="email-error" role="alert" className="mt-1.5 text-xs text-destructive">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="relative">
-        <input
-          id="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="Phone (optional)"
-          className={FIELD}
-          aria-invalid={!!errors.phone}
-          aria-describedby={errors.phone ? "phone-error" : undefined}
-          {...form.register("phone")}
-        />
-        <label htmlFor="phone" className={LABEL}>
-          Phone <span className="normal-case tracking-normal opacity-70">(optional)</span>
-        </label>
-        {errors.phone && (
-          <p id="phone-error" role="alert" className="mt-1.5 text-xs text-destructive">
-            {errors.phone.message}
-          </p>
+    <form
+      onSubmit={form.handleSubmit(onSubmit, () => {
+        holding.current = true;
+        onMood?.("unsure");
+      })}
+      noValidate
+      aria-label="Join the MyPA waitlist"
+    >
+      <div
+        className={cn(
+          "flex h-14 items-center rounded-full border bg-background pl-5 pr-1.5",
+          "transition-[border-color,box-shadow] duration-200 ease-out",
+          "focus-within:border-foreground/60 focus-within:ring-4 focus-within:ring-secondary",
+          errors.email ? "border-destructive/60" : "border-input hover:border-foreground/30",
         )}
+      >
+        <label htmlFor="email" className="sr-only">Email address</label>
+        <input
+          id="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="Your email"
+          className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+          aria-invalid={!!errors.email}
+          aria-describedby={message ? "waitlist-message" : undefined}
+          {...email}
+          onFocus={() => !holding.current && onMood?.("listen")}
+          onChange={(e) => {
+            email.onChange(e);
+            holding.current = false;
+            onMood?.("listen");
+          }}
+          onBlur={(e) => {
+            email.onBlur(e);
+            if (!submitting && !holding.current) onMood?.("idle");
+          }}
+        />
+        <button
+          type="submit"
+          disabled={submitting}
+          className={cn(
+            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-medium text-background",
+            "transition-[background-color,transform] duration-200 ease-out hover:bg-foreground/85 active:scale-[0.97]",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:cursor-progress",
+          )}
+        >
+          <span>{submitting ? "Joining" : <>Join<span className="max-[359px]:hidden"> the waitlist</span></>}</span>
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowRight className="h-4 w-4 transition-transform duration-300 ease-out group-hover:translate-x-0.5" />
+          )}
+        </button>
       </div>
 
       {/* Honeypot: visually hidden and skipped by keyboard/screen readers. */}
       <div className="sr-only" aria-hidden="true">
         <label htmlFor="website">Leave this field empty</label>
-        <input
-          id="website"
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          {...form.register("website")}
-        />
+        <input id="website" type="text" tabIndex={-1} autoComplete="off" {...form.register("website")} />
       </div>
 
-      <div className="flex flex-col gap-5 pt-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-start gap-2.5">
-            <Checkbox
-              id="agreed"
-              className="mt-0.5"
-              checked={form.watch("agreed")}
-              aria-invalid={!!errors.agreed}
-              aria-describedby={errors.agreed ? "agreed-error" : undefined}
-              onCheckedChange={(c) => form.setValue("agreed", c === true, { shouldValidate: true })}
-            />
-            <label htmlFor="agreed" className="text-sm leading-snug text-muted-foreground">
-              Email me about early access.
-            </label>
-          </div>
-          {errors.agreed && (
-            <p id="agreed-error" role="alert" className="mt-1.5 text-xs text-destructive">
-              {errors.agreed.message}
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={form.formState.isSubmitting}
-          className={cn(
-            // Tactile, raised key: a soft top-to-bottom tone, a lit top edge,
-            // a darker lip underneath and a short cast shadow. Pressing sinks
-            // it one pixel and swaps the lift for an inset shadow.
-            "group inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-sm font-medium text-primary-foreground",
-            "border border-[color-mix(in_oklch,var(--primary)_65%,black)]",
-            "bg-[linear-gradient(to_bottom,color-mix(in_oklch,var(--primary)_92%,white),color-mix(in_oklch,var(--primary)_92%,black))]",
-            "shadow-[inset_0_1px_0_rgb(255_255_255/0.28),inset_0_-2px_0_rgb(0_0_0/0.14),0_2px_0_color-mix(in_oklch,var(--primary)_55%,black),0_4px_8px_-2px_rgb(0_0_0/0.35)]",
-            "[text-shadow:0_-1px_0_rgb(0_0_0/0.25)] dark:[text-shadow:0_1px_0_rgb(255_255_255/0.3)]",
-            "transition-[transform,box-shadow] duration-100 hover:brightness-[1.04]",
-            "active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgb(0_0_0/0.25),0_0_0_color-mix(in_oklch,var(--primary)_55%,black)]",
-            "disabled:opacity-60",
-          )}
+      <div className="mt-2 flex justify-center">
+        <label
+          htmlFor="agreed"
+          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-muted-foreground"
         >
-          {form.formState.isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          Reserve my place
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 [filter:drop-shadow(0_-1px_0_rgb(0_0_0/0.2))]" />
-        </button>
+          <Checkbox
+            id="agreed"
+            className="shadow-none"
+            checked={form.watch("agreed")}
+            aria-invalid={!!errors.agreed}
+            aria-describedby={errors.agreed ? "waitlist-message" : undefined}
+            onCheckedChange={(c) => form.setValue("agreed", c === true, { shouldValidate: form.formState.isSubmitted })}
+          />
+          Email me about early access.
+        </label>
       </div>
 
-      {serverError && (
-        <p role="alert" className="text-sm text-destructive">
-          {serverError}
-        </p>
-      )}
+      <p
+        id="waitlist-message"
+        role="alert"
+        aria-live="polite"
+        className={cn(
+          "min-h-5 text-center text-[13px] text-destructive transition-opacity duration-200",
+          message ? "opacity-100" : "opacity-0",
+        )}
+      >
+        {message}
+      </p>
     </form>
   );
 }
