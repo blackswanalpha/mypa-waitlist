@@ -16,34 +16,34 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Sage — light */
-  --background: oklch(0.972 0.008 135);
-  --foreground: oklch(0.27 0.025 158);
+  /* Light — pure white paper, slate ink. Sage is an accent, not a surface. */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.208 0.042 265.755); /* #0F172A */
 
   /* UI Elements */
-  --card: oklch(0.985 0.006 135);
-  --card-foreground: oklch(0.24 0.025 158);
-  --popover: oklch(0.99 0.004 135);
-  --popover-foreground: oklch(0.24 0.025 158);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.208 0.042 265.755);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.208 0.042 265.755);
 
   /* Brand Colors */
-  --primary: oklch(0.45 0.065 155);
-  --primary-foreground: oklch(0.98 0.01 130);
-  --secondary: oklch(0.93 0.018 140);
-  --secondary-foreground: oklch(0.32 0.03 155);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.968 0.007 247.896); /* #F1F5F9 */
+  --secondary-foreground: oklch(0.279 0.041 260.031);
 
   /* Accents */
-  --muted: oklch(0.935 0.014 138);
-  --muted-foreground: oklch(0.5 0.022 150);
-  --accent: oklch(0.92 0.022 140);
-  --accent-foreground: oklch(0.27 0.025 158);
+  --muted: oklch(0.984 0.003 247.858); /* #F8FAFC */
+  --muted-foreground: oklch(0.554 0.046 257.417); /* #64748B */
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
 
   /* Semantic Colors */
   --destructive: oklch(0.55 0.17 28);
   --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.87 0.015 140);
-  --input: oklch(0.8 0.02 140);
-  --ring: oklch(0.45 0.065 155);
+  --border: oklch(0.929 0.013 255.508); /* #E2E8F0 */
+  --input: oklch(0.869 0.022 252.894); /* #CBD5E1 */
+  --ring: oklch(0.208 0.042 265.755);
 
   /* Custom Theme Colors */
   --color-fern: oklch(0.5 0.08 150);
@@ -81,33 +81,33 @@
 
 .dark {
   /* Sage — dark (deep forest ink) */
-  --background: oklch(0.185 0.014 160);
+  --background: oklch(0.185 0 0);
   --foreground: oklch(0.9 0.018 130);
 
   /* UI Elements */
-  --card: oklch(0.215 0.016 160);
+  --card: oklch(0.215 0 0);
   --card-foreground: oklch(0.93 0.016 130);
-  --popover: oklch(0.235 0.017 160);
+  --popover: oklch(0.235 0 0);
   --popover-foreground: oklch(0.93 0.016 130);
 
   /* Brand Colors */
-  --primary: oklch(0.8 0.07 145);
-  --primary-foreground: oklch(0.2 0.03 158);
-  --secondary: oklch(0.27 0.02 158);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.27 0 0);
   --secondary-foreground: oklch(0.9 0.018 130);
 
   /* Accents */
-  --muted: oklch(0.24 0.016 160);
+  --muted: oklch(0.24 0 0);
   --muted-foreground: oklch(0.7 0.025 140);
-  --accent: oklch(0.27 0.022 158);
+  --accent: oklch(0.27 0 0);
   --accent-foreground: oklch(0.93 0.016 130);
 
   /* Semantic Colors */
   --destructive: oklch(0.66 0.17 28);
   --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.3 0.02 158);
-  --input: oklch(0.36 0.022 155);
-  --ring: oklch(0.8 0.07 145);
+  --border: oklch(0.3 0 0);
+  --input: oklch(0.36 0 0);
+  --ring: oklch(0.985 0 0);
 
   /* Custom Theme Colors */
   --color-fern: oklch(0.78 0.08 145);
@@ -182,6 +182,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
+  --font-display: var(--font-display);
   --radius: 0.5rem;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -275,6 +276,80 @@
       animation: none;
     }
     .animate-voicebar {
+      animation: none;
+    }
+  }
+
+  /* Glance bot. Float and breath run on different periods so the combined
+     drift never visibly repeats; all four are transform/opacity only. */
+  @keyframes bot-float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -5px, 0); }
+  }
+  @keyframes bot-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.018); }
+  }
+  @keyframes bot-contour {
+    from { transform: scale(1); opacity: 0.7; }
+    to { transform: scale(1.75); opacity: 0; }
+  }
+  @keyframes bot-orbit {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes bot-done {
+    from { transform: scale(1); opacity: 0.9; }
+    to { transform: scale(1.65); opacity: 0; }
+  }
+  .bot-float { animation: bot-float 7s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  .bot-breathe { animation: bot-breathe 4.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  .bot-contour { animation: bot-contour 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+  .bot-orbit { animation: bot-orbit 1.8s linear infinite; }
+  .bot-done { animation: bot-done 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+  /* Carousel: the incoming slide is uncovered left to right, like a page of
+     the sketchbook being turned; the caption lines rise in after it. */
+  @keyframes slide-reveal {
+    from { clip-path: inset(0 0 0 100%); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes slide-settle {
+    from { transform: translate3d(2.5%, 0, 0) scale(1.015); }
+    to { transform: none; }
+  }
+  @keyframes slide-reveal-back {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes slide-settle-back {
+    from { transform: translate3d(-2.5%, 0, 0) scale(1.015); }
+    to { transform: none; }
+  }
+  @keyframes edge-forward {
+    0% { transform: translate3d(100%, 0, 0); opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translate3d(0, 0, 0); opacity: 0; }
+  }
+  @keyframes edge-back {
+    0% { transform: translate3d(-100%, 0, 0); opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translate3d(0, 0, 0); opacity: 0; }
+  }
+  @keyframes rise-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes progress-fill {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bot-float,
+    .bot-breathe,
+    .bot-contour,
+    .bot-orbit,
+    .bot-done {
       animation: none;
     }
   }
