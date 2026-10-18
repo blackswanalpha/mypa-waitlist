@@ -51,7 +51,7 @@ const capped = (s: string | undefined) =>
  */
 export const submit = mutation({
   args: {
-    name: v.string(),
+    name: v.optional(v.string()),
     email: v.string(),
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
@@ -76,12 +76,12 @@ export const submit = mutation({
       return { ok: true as const, duplicate: false as const };
     }
 
-    const name = args.name.trim();
+    const name = args.name?.trim() || undefined;
     const email = args.email.trim().toLowerCase();
     const phone = args.phone?.trim() || undefined;
 
-    if (name.length < 2) throw new Error("Please enter your name.");
-    if (name.length > MAX_NAME) throw new Error("That name is too long.");
+    if (name && name.length < 2) throw new Error("Please enter your name.");
+    if (name && name.length > MAX_NAME) throw new Error("That name is too long.");
     if (email.length > MAX_EMAIL || !EMAIL_RE.test(email)) {
       throw new Error("Please enter a valid email address.");
     }

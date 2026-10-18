@@ -106,7 +106,7 @@ export function ReferralsTab() {
                     <TableCell className="tabular-nums text-muted-foreground">
                       {i + 1}
                     </TableCell>
-                    <TableCell className="font-medium">{leader.name}</TableCell>
+                    <TableCell className="font-medium">{leader.name ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {leader.email}
                     </TableCell>
@@ -125,7 +125,7 @@ export function ReferralsTab() {
                           variant="ghost"
                           size="icon"
                           onClick={() => copyLink(leader.referralCode!)}
-                          aria-label={`Copy ${leader.name}'s referral link`}
+                          aria-label={`Copy ${leader.name ?? leader.email}'s referral link`}
                         >
                           <Copy className="h-4 w-4" />
                         </Button>

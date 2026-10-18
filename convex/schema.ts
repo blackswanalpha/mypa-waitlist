@@ -15,7 +15,7 @@ export default defineSchema({
   // "Whitelisted" in the admin UI): those rows are synced to the product
   // backend's launch allowlist.
   waitlist: defineTable({
-    name: v.string(),
+    name: v.optional(v.string()), // the landing form asks for email only
     email: v.string(),
     phone: v.optional(v.string()),
     status: v.union(

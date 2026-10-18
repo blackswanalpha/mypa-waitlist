@@ -103,13 +103,13 @@ function step(n: number, title: string, body: string): string {
     </tr>`;
 }
 
-export function waitlistConfirmationHtml(name: string): string {
-  const safeName = escapeHtml(name || "there");
+export function waitlistConfirmationHtml(name?: string): string {
+  const greeting = name ? `Welcome, ${escapeHtml(name)}` : "Welcome";
   return wrap(
     "Welcome to MyPA — your spot on the list is saved",
     `
     <h1 style="margin:0 0 16px 0;font-size:26px;font-weight:600;color:${TEXT};">
-      Welcome, ${safeName} — we're so glad you're here.
+      ${greeting} — we're so glad you're here.
     </h1>
     <p style="margin:0 0 16px 0;color:${TEXT};">
       Thank you for joining the MyPA early-access list. It takes a little
