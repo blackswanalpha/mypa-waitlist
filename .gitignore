@@ -40,3 +40,10 @@ convex/_generated/
 
 # vercel
 .vercel
+
+# carousel source PNGs; the page serves the WebP exports beside them
+public/carousel/*.png
+
+# playwright
+/test-results/
+/playwright-report/
