@@ -90,7 +90,7 @@ export function DayCarousel() {
       ref={root}
       aria-roledescription="carousel"
       aria-label="A day with MyPA"
-      className="mx-auto w-full max-w-5xl"
+      className="@container mx-auto w-full max-w-5xl"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={(e) => e.target.matches(":focus-visible") && setFocused(true)}
@@ -153,7 +153,7 @@ export function DayCarousel() {
                   src={s.src}
                   alt={s.alt}
                   fill
-                  sizes="(min-width: 1056px) 1024px, calc(100vw - 32px)"
+                  sizes="(min-width: 1024px) 680px, calc(100vw - 32px)"
                   className="object-contain"
                   draggable={false}
                 />
@@ -175,8 +175,8 @@ export function DayCarousel() {
         )}
       </div>
 
-      <div className="mt-5 grid gap-5 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-10">
-        <div aria-live={userDriven || reduced ? "polite" : "off"} className="min-h-[7.5rem] sm:min-h-[6rem]">
+      <div className="mt-5 grid gap-5 border-t border-border pt-5 @[34rem]:grid-cols-[1fr_auto] @[34rem]:items-start @[34rem]:gap-10">
+        <div aria-live={userDriven || reduced ? "polite" : "off"} className="min-h-[7.5rem] @[34rem]:min-h-[6rem]">
           <p className="font-mono text-[11px] tabular-nums tracking-[0.08em] text-muted-foreground">
             {pad(active + 1)} <span className="text-slate-300">/</span> {pad(count)}
           </p>
@@ -188,7 +188,7 @@ export function DayCarousel() {
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="flex items-center justify-between gap-4 @[34rem]:justify-end">
           <div className="flex items-center" role="group" aria-label="Choose a slide">
             {SLIDES.map((s, i) => {
               const on = i === active;
