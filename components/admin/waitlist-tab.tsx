@@ -119,7 +119,7 @@ export function WaitlistTab() {
     const needle = search.trim().toLowerCase();
     return t.loadedRows.filter(
       (r) =>
-        r.name.toLowerCase().includes(needle) ||
+        (r.name ?? "").toLowerCase().includes(needle) ||
         r.email.toLowerCase().includes(needle),
     );
   }, [searching, search, t.loadedRows]);
@@ -224,7 +224,7 @@ export function WaitlistTab() {
           "landingPath",
         ],
         all.map((r) => [
-          r.name,
+          r.name ?? "",
           r.email,
           r.phone ?? "",
           r.status,
@@ -461,10 +461,10 @@ export function WaitlistTab() {
                     <Checkbox
                       checked={selected.has(r._id)}
                       onCheckedChange={() => toggleOne(r._id)}
-                      aria-label={`Select ${r.name}`}
+                      aria-label={`Select ${r.name ?? r.email}`}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell className="font-medium">{r.name ?? "—"}</TableCell>
                   <TableCell>{r.email}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {r.phone ?? "—"}

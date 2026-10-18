@@ -82,7 +82,7 @@ export const syncToBackend = action({
       const page: {
         continueCursor: string;
         isDone: boolean;
-        rows: { id: Id<"waitlist">; email: string; name: string }[];
+        rows: { id: Id<"waitlist">; email: string; name?: string }[];
       } = await ctx.runQuery(internal.sync.unsyncedInvited, {
         cursor,
         includeSynced: args.includeSynced,

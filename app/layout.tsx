@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
+import { Inter, Instrument_Serif, IBM_Plex_Mono, DM_Sans } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -16,6 +16,15 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
   subsets: ["latin"],
   variable: "--font-serif",
+  display: "swap",
+});
+
+// The landing page's face. DM Sans is what the app and the brand film ship,
+// and its optical-size axis keeps the small headline crisp.
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -89,7 +98,7 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="en" className="scroll-smooth" suppressHydrationWarning>
         <body
-          className={`${inter.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable} font-sans antialiased`}
+          className={`${inter.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable} ${dmSans.variable} font-sans antialiased`}
         >
           <script
             type="application/ld+json"

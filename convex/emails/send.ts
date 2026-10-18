@@ -48,7 +48,7 @@ function adminEmails(): string[] {
 }
 
 export const sendWaitlistEmails = internalMutation({
-  args: { name: v.string(), email: v.string() },
+  args: { name: v.optional(v.string()), email: v.string() },
   handler: async (ctx, { name, email }) => {
     await resend.sendEmail(ctx, {
       from: FROM,
@@ -65,7 +65,7 @@ export const sendWaitlistEmails = internalMutation({
         html: adminNotifyHtml({
           type: "Waitlist",
           rows: [
-            { label: "Name", value: name },
+            { label: "Name", value: name ?? "—" },
             { label: "Email", value: email },
           ],
         }),
