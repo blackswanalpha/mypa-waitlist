@@ -185,9 +185,14 @@ for (const [w, h] of VIEWPORTS) {
           expect(ix * iy, `${boxes[i].s} overlaps ${boxes[j].s}`).toBe(0);
         }
       }
-      // Order down the page: bot, headline, form, then the cards below it, then the carousel.
-      const ys = boxes.map((x) => x.b.y);
-      expect([...ys].sort((a, b) => a - b)).toEqual(ys);
+      // Bot, headline and form run down the hero; the carousel sits beside the
+      // hero from lg up and below it otherwise; the use-case cards come after both.
+      const [bot, h1, form, panel, carousel] = boxes.map((x) => x.b);
+      expect(bot.y).toBeLessThan(h1.y);
+      expect(h1.y).toBeLessThan(form.y);
+      if (w >= 1024) expect(carousel.x).toBeGreaterThanOrEqual(form.x + form.width);
+      else expect(carousel.y).toBeGreaterThanOrEqual(form.y + form.height);
+      expect(panel.y).toBeGreaterThanOrEqual(Math.max(form.y + form.height, carousel.y + carousel.height));
     });
   });
 }
@@ -219,7 +224,6 @@ test.describe("validation", () => {
     test(`rejects "${bad}" client-side`, async ({ page }) => {
       await home(page);
       await page.fill("#email", bad);
-      await page.locator('label[for="agreed"]').click();
       await page.locator(`${FORM} button[type=submit]`).click();
       await expect(page.locator("#waitlist-message")).toHaveText("That email doesn’t look right.");
       await expect(page.locator(BOT)).toHaveAttribute("data-mood", "unsure");
@@ -227,8 +231,18 @@ test.describe("validation", () => {
     });
   }
 
+  test("consent is ticked by default, in green", async ({ page }) => {
+    await home(page);
+    const box = page.locator("#agreed");
+    await expect(box).toHaveAttribute("data-state", "checked");
+    const [r, g, b] = await rgbOf(page, "#agreed", "backgroundColor");
+    expect(g).toBeGreaterThan(r);
+    expect(g).toBeGreaterThan(b);
+  });
+
   test("a valid email without consent is held back", async ({ page }) => {
     await home(page);
+    await page.locator('label[for="agreed"]').click();
     await page.fill("#email", uniqueEmail("noconsent"));
     await page.locator(`${FORM} button[type=submit]`).click();
     await expect(page.locator("#waitlist-message")).toHaveText("Tick the box so we can email your invite.");
@@ -266,7 +280,6 @@ test.describe("submission", () => {
       await page.setViewportSize({ width: w, height: h });
       await home(page);
       await page.fill("#email", uniqueEmail(`v${w}`));
-      await page.locator('label[for="agreed"]').click();
       await page.locator(`${FORM} button[type=submit]`).click();
       const done = page.locator('[role="status"]');
       await expect(done).toContainText("on the list", { timeout: 15_000 });
@@ -281,7 +294,6 @@ test.describe("submission", () => {
     await home(page);
     const email = uniqueEmail("norm").toUpperCase();
     await page.fill("#email", `  ${email}  `);
-    await page.locator('label[for="agreed"]').click();
     await page.locator(`${FORM} button[type=submit]`).click();
     await expect(page.locator('[role="status"]')).toContainText("on the list", { timeout: 15_000 });
     // A first visit has no stored theme; the toast must still be light on the white page.
@@ -295,7 +307,6 @@ test.describe("submission", () => {
     for (const pass of [1, 2]) {
       await home(page);
       await page.fill("#email", email);
-      await page.locator('label[for="agreed"]').click();
       await page.locator(`${FORM} button[type=submit]`).click();
       await expect(page.locator('[role="status"]')).toContainText("on the list", { timeout: 15_000 });
       if (pass === 2) await expect(page.getByText("You're already on the list")).toBeVisible();
@@ -393,7 +404,8 @@ test.describe("carousel", () => {
   });
 
   test("autoplay waits while the carousel is off screen", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 700 });
+    // Stacked layout on a short phone: the carousel starts below the fold.
+    await page.setViewportSize({ width: 375, height: 560 });
     await home(page);
     await expect.poll(() => progressState(page)).toBe("paused");
   });
