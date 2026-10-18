@@ -190,7 +190,13 @@ for (const [w, h] of VIEWPORTS) {
       const [bot, h1, form, panel, carousel] = boxes.map((x) => x.b);
       expect(bot.y).toBeLessThan(h1.y);
       expect(h1.y).toBeLessThan(form.y);
-      if (w >= 1024) expect(carousel.x).toBeGreaterThanOrEqual(form.x + form.width);
+      if (w >= 1024) {
+        expect(carousel.x).toBeGreaterThanOrEqual(form.x + form.width);
+        // The two columns are equal.
+        const cols = await page.locator("main > div").first().evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(" "));
+        expect(cols).toHaveLength(2);
+        expect(Math.abs(parseFloat(cols[0]) - parseFloat(cols[1]))).toBeLessThan(1);
+      }
       else expect(carousel.y).toBeGreaterThanOrEqual(form.y + form.height);
       expect(panel.y).toBeGreaterThanOrEqual(Math.max(form.y + form.height, carousel.y + carousel.height));
     });
@@ -238,6 +244,14 @@ test.describe("validation", () => {
     const [r, g, b] = await rgbOf(page, "#agreed", "backgroundColor");
     expect(g).toBeGreaterThan(r);
     expect(g).toBeGreaterThan(b);
+  });
+
+  test("Contact, the consent line and the carousel caption are black", async ({ page }) => {
+    await home(page);
+    for (const sel of ['header a[href="/contact"]', 'label[for="agreed"]', `${CAROUSEL} h3 + p`]) {
+      const [r, g, b] = await rgbOf(page, sel, "color");
+      expect(Math.max(r, g, b), sel).toBeLessThan(48);
+    }
   });
 
   test("a valid email without consent is held back", async ({ page }) => {
@@ -396,6 +410,21 @@ test.describe("carousel", () => {
     await expect.poll(() => counter(page)).toBe("02 / 04");
   });
 
+  test("turns and dwell run 20% slower than first shipped", async ({ page }) => {
+    await home(page);
+    await page.locator(CAROUSEL).scrollIntoViewIfNeeded();
+    await page.mouse.move(2, 2);
+    const timing = (name: string) =>
+      page.evaluate(
+        (n) => document.getAnimations().find((a) => (a as CSSAnimation).animationName === n)?.effect?.getTiming().duration,
+        name,
+      );
+    await expect.poll(() => timing("progress-fill")).toBe(8125);
+    await page.getByRole("button", { name: "Next slide" }).click();
+    expect(await timing("slide-reveal")).toBe(1375);
+    expect(await timing("slide-settle")).toBe(2000);
+  });
+
   test("autoplay pauses on hover", async ({ page }) => {
     await home(page);
     await page.locator(CAROUSEL).scrollIntoViewIfNeeded();
@@ -503,6 +532,32 @@ test.describe("bot", () => {
     await page.locator("#email").focus();
     const rings = page.locator(`${BOT} .bot-contour`).first();
     await expect.poll(() => rings.evaluate((e) => getComputedStyle(e.parentElement!).opacity)).toBe("1");
+  });
+
+  test("blinks at rest within one eight-second cycle", async ({ page }) => {
+    test.setTimeout(30_000);
+    await home(page);
+    await expect(page.locator(BOT)).toHaveAttribute("data-blinks", "1", { timeout: 10_000 });
+    await expect(page.locator(BOT)).toHaveAttribute("data-mood", "idle");
+  });
+
+  test("does not blink over another state", async ({ page }) => {
+    test.setTimeout(30_000);
+    await home(page);
+    await page.locator("#email").focus();
+    await page.waitForTimeout(9_000);
+    await expect(page.locator(BOT)).not.toHaveAttribute("data-blinks", /.+/);
+  });
+
+  test("a tap squashes, rings and answers without changing the form's state", async ({ page }) => {
+    await home(page);
+    const bot = page.getByRole("button", { name: "Say hello to MyPA" });
+    await bot.click();
+    await expect(page.locator(`${BOT} .bot-boop-a`)).toHaveCount(1);
+    await expect(page.locator(`${BOT} .bot-done`)).toHaveCount(1);
+    await bot.click();
+    await expect(page.locator(`${BOT} .bot-boop-b`)).toHaveCount(1);
+    await expect(page.locator(BOT)).toHaveAttribute("data-mood", "idle");
   });
 
   test("leans toward a mouse pointer", async ({ page }) => {
