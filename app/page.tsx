@@ -10,8 +10,8 @@ export default function HomePage() {
       <Header />
 
       <main id="waitlist" className="flex-1 px-4 sm:px-6 lg:px-8">
-        {/* The hero on the left, a day with MyPA on the right; stacked below lg. */}
-        <div className="mx-auto grid max-w-7xl items-center gap-16 pt-4 sm:pt-8 lg:min-h-[calc(100svh-5rem)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16 lg:pb-12 lg:pt-0">
+        {/* Two equal columns from lg: the hero on the left, the carousel on the right. */}
+        <div className="mx-auto grid max-w-7xl items-center gap-16 pt-4 sm:pt-8 lg:min-h-[calc(100svh-5rem)] lg:grid-cols-2 lg:gap-16 lg:pb-12 lg:pt-0">
           <Hero />
 
           <div className="animate-rise w-full" style={{ animationDelay: "300ms" }}>

@@ -233,7 +233,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
       <div className="mt-2 flex justify-center">
         <label
           htmlFor="agreed"
-          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-muted-foreground"
+          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-foreground"
         >
           <Checkbox
             id="agreed"

@@ -21,7 +21,7 @@ export function Header() {
         <nav className="flex items-center justify-self-end">
           <Link
             href="/contact"
-            className="inline-flex h-11 items-center rounded-full px-4 font-display text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
+            className="inline-flex h-11 items-center rounded-full px-4 font-display text-sm text-foreground transition-colors duration-200 hover:text-foreground/70"
           >
             Contact
           </Link>
