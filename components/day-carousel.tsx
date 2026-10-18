@@ -6,8 +6,11 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { SLIDES } from "@/lib/carousel";
 import { cn } from "@/lib/utils";
 
-const DWELL_MS = 6500;
-const TURN_MS = 1100;
+// Everything here runs 20% slower than first shipped (×1.25).
+const DWELL_MS = 8125;
+const TURN_MS = 1375;
+const SETTLE_MS = 2000;
+const CAPTION_MS = 1000;
 /** In-out for the wipe so it starts and lands softly, like a page turned by hand. */
 const TURN_EASE = "cubic-bezier(0.65, 0, 0.35, 1)";
 const SETTLE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -90,7 +93,7 @@ export function DayCarousel() {
       ref={root}
       aria-roledescription="carousel"
       aria-label="A day with MyPA"
-      className="mx-auto w-full max-w-5xl"
+      className="@container mx-auto w-full max-w-5xl"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={(e) => e.target.matches(":focus-visible") && setFocused(true)}
@@ -132,7 +135,7 @@ export function DayCarousel() {
                 opacity: on || under ? 1 : 0,
                 ...(on && prev !== null
                   ? reduced
-                    ? { animation: "rise-fade 240ms ease-out both" }
+                    ? { animation: "rise-fade 300ms ease-out both" }
                     : { animation: `${dir > 0 ? "slide-reveal" : "slide-reveal-back"} ${TURN_MS}ms ${TURN_EASE} both` }
                   : null),
               }}
@@ -145,7 +148,7 @@ export function DayCarousel() {
                 style={
                   // Keyed to the turn, not to prev: the settle outlasts the wipe.
                   on && turn > 0 && !reduced
-                    ? { animation: `${dir > 0 ? "slide-settle" : "slide-settle-back"} ${TURN_MS + 500}ms ${SETTLE_EASE} both` }
+                    ? { animation: `${dir > 0 ? "slide-settle" : "slide-settle-back"} ${SETTLE_MS}ms ${SETTLE_EASE} both` }
                     : undefined
                 }
               >
@@ -153,7 +156,7 @@ export function DayCarousel() {
                   src={s.src}
                   alt={s.alt}
                   fill
-                  sizes="(min-width: 1056px) 1024px, calc(100vw - 32px)"
+                  sizes="(min-width: 1024px) 680px, calc(100vw - 32px)"
                   className="object-contain"
                   draggable={false}
                 />
@@ -175,20 +178,20 @@ export function DayCarousel() {
         )}
       </div>
 
-      <div className="mt-5 grid gap-5 border-t border-border pt-5 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-10">
-        <div aria-live={userDriven || reduced ? "polite" : "off"} className="min-h-[7.5rem] sm:min-h-[6rem]">
+      <div className="mt-5 grid gap-5 border-t border-border pt-5 @[34rem]:grid-cols-[1fr_auto] @[34rem]:items-start @[34rem]:gap-10">
+        <div aria-live={userDriven || reduced ? "polite" : "off"} className="min-h-[7.5rem] @[34rem]:min-h-[6rem]">
           <p className="font-mono text-[11px] tabular-nums tracking-[0.08em] text-muted-foreground">
             {pad(active + 1)} <span className="text-slate-300">/</span> {pad(count)}
           </p>
-          <h3 key={`t${active}`} className="animate-rise mt-2 text-[17px] font-medium tracking-[-0.015em] text-foreground" style={{ animationDelay: reduced ? "0ms" : "260ms" }}>
+          <h3 key={`t${active}`} className="animate-rise mt-2 text-[17px] font-medium tracking-[-0.015em] text-foreground" style={{ animationDelay: reduced ? "0ms" : "325ms", animationDuration: `${CAPTION_MS}ms` }}>
             {slide.title}
           </h3>
-          <p key={`b${active}`} className="animate-rise mt-1 max-w-md text-[14px] leading-relaxed text-muted-foreground" style={{ animationDelay: reduced ? "0ms" : "360ms" }}>
+          <p key={`b${active}`} className="animate-rise mt-1 max-w-md text-[14px] leading-relaxed text-foreground" style={{ animationDelay: reduced ? "0ms" : "450ms", animationDuration: `${CAPTION_MS}ms` }}>
             {slide.body}
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="flex items-center justify-between gap-4 @[34rem]:justify-end">
           <div className="flex items-center" role="group" aria-label="Choose a slide">
             {SLIDES.map((s, i) => {
               const on = i === active;

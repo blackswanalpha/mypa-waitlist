@@ -2,6 +2,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { DayCarousel } from "@/components/day-carousel";
+import { VoicePanel } from "@/components/voice-panel";
 
 export default function HomePage() {
   return (
@@ -9,11 +10,17 @@ export default function HomePage() {
       <Header />
 
       <main id="waitlist" className="flex-1 px-4 sm:px-6 lg:px-8">
-        <Hero />
+        {/* Two equal columns from lg: the hero on the left, the carousel on the right. */}
+        <div className="mx-auto grid max-w-7xl items-center gap-16 pt-4 sm:pt-8 lg:min-h-[calc(100svh-5rem)] lg:grid-cols-2 lg:gap-16 lg:pb-12 lg:pt-0">
+          <Hero />
 
-        <div className="mx-auto mt-20 max-w-5xl pb-20 sm:mt-28 sm:pb-28">
-          <p className="mb-6 text-[13px] font-medium text-muted-foreground">A day with MyPA</p>
-          <DayCarousel />
+          <div className="animate-rise w-full" style={{ animationDelay: "300ms" }}>
+            <DayCarousel />
+          </div>
+        </div>
+
+        <div className="animate-rise mx-auto mt-20 max-w-5xl pb-20 sm:pb-28 lg:mt-12" style={{ animationDelay: "380ms" }}>
+          <VoicePanel />
         </div>
       </main>
 

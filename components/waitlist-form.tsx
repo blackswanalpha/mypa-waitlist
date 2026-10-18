@@ -61,7 +61,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", agreed: false, website: "" },
+    defaultValues: { email: "", agreed: true, website: "" },
   });
 
   const onSubmit = async (data: Values) => {
@@ -178,7 +178,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
     >
       <div
         className={cn(
-          "flex h-14 items-center rounded-full border bg-background pl-5 pr-1.5",
+          "flex h-14 items-center rounded-[8px] border bg-background pl-5 pr-1.5",
           "transition-[border-color,box-shadow] duration-200 ease-out",
           "focus-within:border-foreground/60 focus-within:ring-4 focus-within:ring-secondary",
           errors.email ? "border-destructive/60" : "border-input hover:border-foreground/30",
@@ -210,7 +210,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
           type="submit"
           disabled={submitting}
           className={cn(
-            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-medium text-background",
+            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-foreground px-5 text-sm font-medium text-background",
             "transition-[background-color,transform] duration-200 ease-out hover:bg-foreground/85 active:scale-[0.97]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:cursor-progress",
           )}
@@ -233,11 +233,11 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
       <div className="mt-2 flex justify-center">
         <label
           htmlFor="agreed"
-          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-muted-foreground"
+          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-foreground"
         >
           <Checkbox
             id="agreed"
-            className="shadow-none"
+            className="shadow-none data-[state=checked]:border-fern data-[state=checked]:bg-fern data-[state=checked]:text-white"
             checked={form.watch("agreed")}
             aria-invalid={!!errors.agreed}
             aria-describedby={errors.agreed ? "waitlist-message" : undefined}

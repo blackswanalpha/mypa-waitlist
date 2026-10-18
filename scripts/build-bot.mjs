@@ -5,11 +5,13 @@
 //   node scripts/build-bot.mjs ../motionstudio/bot/out/lottie/light
 //
 // Each state's layer is placed on the shared timeline by its ip/op/st, so no
-// keyframe is rewritten. One marker per state names its segment.
+// keyframe is rewritten. One marker per state names its segment, plus a
+// "blink" marker over the tail of arrive, which Motion Studio authored as a
+// blink from the resting face back to it.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const STATES = ["arrive", "listen", "think", "done", "unsure", "failed"];
+const STATES = ["arrive", "listen", "think", "speak", "done", "unsure", "failed"];
 const src = process.argv[2];
 const out = process.argv[3] ?? "public/bot/glance.json";
 if (!src) {
@@ -32,7 +34,18 @@ for (const state of STATES) {
     layers.push({ ...layer, ind: layers.length + 1, ip: t + layer.ip, op: t + layer.op, st: t + (layer.st ?? 0) });
   }
   markers.push({ tm: t, cm: state, dr: frames });
+  if (state === "arrive") markers.push({ tm: t + blinkStart(doc), cm: "blink", dr: doc.op - blinkStart(doc) });
   t += frames;
+}
+
+/** Four frames before arrive's last eye close: the open face, then the blink. */
+function blinkStart(doc) {
+  const eyes = doc.layers[0].shapes.find((g) => g.nm === "eyes");
+  const k = eyes.it.find((g) => g.nm === "eye-l").it.find((s) => s.ty === "rc").s.k;
+  for (let i = k.length - 2; i >= 0; i--) {
+    if (k[i].s[1] > k[i + 1].s[1]) return k[i].t - 4;
+  }
+  throw new Error("glance-arrive.json has no eye close to blink with");
 }
 
 const merged = { ...base, nm: "glance", ip: 0, op: t, layers, markers, assets: [] };
