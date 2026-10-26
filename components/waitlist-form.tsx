@@ -4,18 +4,13 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Check, Copy, ArrowRight } from "lucide-react";
+import { Loader2, Check, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { getAttribution } from "@/lib/attribution";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import type { BotMood } from "@/components/glance-bot";
 import { cn } from "@/lib/utils";
-
-const CHIP =
-  "inline-flex h-11 items-center rounded-full border border-border px-4 text-[13px] text-foreground/80 transition-colors duration-200 hover:border-foreground/40 hover:text-foreground";
 
 const schema = z.object({
   email: z
@@ -32,32 +27,18 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
-const SHARE_TEXT =
-  "I just joined the waitlist for MyPA — a voice-first AI personal assistant. Grab a spot:";
-
-function shareLink(referralCode: string): string {
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (typeof window !== "undefined" ? window.location.origin : "");
-  return `${origin}/?ref=${referralCode}`;
-}
-
 /**
- * The waitlist as one input bar: email and the button share a single pill,
- * consent sits on the line beneath it. `onMood` tells the bot above what the
- * form is doing, so it listens while you type and thinks while it submits.
+ * The waitlist: the email field with its button beside it (stacked on phones),
+ * consent on the line beneath. Signups go to /api/waitlist, which forwards
+ * them to the product backend. `onMood` tells the bot above what the form is
+ * doing, so it listens while you type and thinks while it submits.
  */
 export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
-  const submit = useMutation(api.waitlist.submit);
   const [done, setDone] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   // After a rejected submit the bot holds its reaction until you type again;
   // the form refocusing the field must not read as "listening".
   const holding = useRef(false);
-  const [referral, setReferral] = useState<{
-    referralCode?: string;
-    position?: number;
-  }>({});
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -68,19 +49,29 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
     setServerError(null);
     onMood?.("think");
     try {
-      const res = await submit({
-        email: data.email,
-        source: "landing",
-        agreed: data.agreed,
-        website: data.website || undefined,
-        ...getAttribution(),
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          source: "landing",
+          agreed: data.agreed,
+          website: data.website || undefined,
+          ...getAttribution(),
+        }),
       });
-      if (res.duplicate) {
+      const body = (await res.json().catch(() => ({}))) as {
+        duplicate?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(body.error ?? "Something went wrong. Please try again.");
+      }
+      if (body.duplicate) {
         toast.info("You're already on the list — we'll be in touch.");
       } else {
         toast.success("You're on the waitlist!");
       }
-      setReferral({ referralCode: res.referralCode, position: res.position });
       setDone(true);
       onMood?.("done");
     } catch (e) {
@@ -94,19 +85,6 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
   };
 
   if (done) {
-    const link = referral.referralCode ? shareLink(referral.referralCode) : null;
-    const copyLink = async () => {
-      if (!link) return;
-      try {
-        await navigator.clipboard.writeText(link);
-        toast.success("Link copied — share it anywhere.");
-      } catch {
-        toast.error("Couldn't copy — select the link and copy it manually.");
-      }
-    };
-    const encodedLink = link ? encodeURIComponent(link) : "";
-    const encodedText = encodeURIComponent(SHARE_TEXT);
-
     return (
       <div className="animate-rise rounded-[1.75rem] border border-border p-5 text-left sm:p-6" role="status">
         <div className="flex items-center gap-2.5">
@@ -116,48 +94,11 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
           <p className="text-[13px] font-medium text-fern">Your place is saved</p>
         </div>
         <h2 className="mt-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-foreground">
-          {referral.position
-            ? <>You&rsquo;re N&deg;&nbsp;{referral.position} on the list.</>
-            : "You’re on the list."}
+          You&rsquo;re on the list.
         </h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          A confirmation is on its way to your inbox. Your invite follows the
-          moment MyPA is ready.
+          Your invite follows the moment MyPA is ready.
         </p>
-
-        {link && (
-          <div className="mt-5">
-            <p className="text-[13px] text-foreground">Bring someone along</p>
-            <div className="mt-2 flex h-14 items-center gap-2 rounded-full border border-input pl-4 pr-1.5">
-              <input
-                readOnly
-                value={link}
-                onFocus={(e) => e.currentTarget.select()}
-                className="min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground/80 outline-none"
-                aria-label="Your referral link"
-              />
-              <button
-                type="button"
-                onClick={copyLink}
-                aria-label="Copy referral link"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/85"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a className={CHIP} target="_blank" rel="noopener noreferrer" href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedLink}`}>
-                Share on X
-              </a>
-              <a className={CHIP} target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodedText}%20${encodedLink}`}>
-                WhatsApp
-              </a>
-              <a className={CHIP} target="_blank" rel="noopener noreferrer" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}`}>
-                LinkedIn
-              </a>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -176,14 +117,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
       noValidate
       aria-label="Join the MyPA waitlist"
     >
-      <div
-        className={cn(
-          "flex h-14 items-center rounded-[8px] border bg-background pl-5 pr-1.5",
-          "transition-[border-color,box-shadow] duration-200 ease-out",
-          "focus-within:border-foreground/60 focus-within:ring-4 focus-within:ring-secondary",
-          errors.email ? "border-destructive/60" : "border-input hover:border-foreground/30",
-        )}
-      >
+      <div className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor="email" className="sr-only">Email address</label>
         <input
           id="email"
@@ -191,7 +125,12 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
           inputMode="email"
           autoComplete="email"
           placeholder="Your email"
-          className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+          className={cn(
+            "h-14 min-w-0 rounded-[8px] sm:flex-1 border bg-background px-5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground",
+            "transition-[border-color,box-shadow] duration-200 ease-out",
+            "focus:border-foreground/60 focus:ring-4 focus:ring-secondary",
+            errors.email ? "border-destructive/60" : "border-input hover:border-foreground/30",
+          )}
           aria-invalid={!!errors.email}
           aria-describedby={message ? "waitlist-message" : undefined}
           {...email}
@@ -210,12 +149,12 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
           type="submit"
           disabled={submitting}
           className={cn(
-            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-foreground px-5 text-sm font-medium text-background",
+            "group inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-foreground px-6 text-sm font-medium text-background",
             "transition-[background-color,transform] duration-200 ease-out hover:bg-foreground/85 active:scale-[0.97]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:cursor-progress",
           )}
         >
-          <span>{submitting ? "Joining" : <>Join<span className="max-[359px]:hidden"> the waitlist</span></>}</span>
+          <span>{submitting ? "Joining" : "Join the waitlist"}</span>
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (

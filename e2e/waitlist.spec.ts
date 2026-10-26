@@ -1,9 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { SLIDES } from "../lib/carousel";
 
-// Landing-page scenarios. The submission scenarios write real rows to the
-// Convex deployment the server was built against, with Resend test addresses
-// (delivered+<label>@resend.dev), and stay under the 30/min submit limiter.
+// Landing-page scenarios. The submission scenarios write real rows through
+// /api/waitlist to the product backend in the server's BACKEND_URL (each a
+// users row with status "waitlist"), with Resend test addresses
+// (delivered+<label>@resend.dev).
 
 const VIEWPORTS: [number, number][] = [
   [320, 640],
@@ -27,7 +28,8 @@ const REMOVED = [
 const FORM = 'form[aria-label="Join the MyPA waitlist"]';
 const BOT = "[data-mood]";
 const CAROUSEL = 'section[aria-roledescription="carousel"]';
-const PANEL = '[aria-label="What MyPA does"]';
+const EMBLEM = 'img[src*="lime-puzzle"]';
+const STATUS = "header p";
 
 /** Load the page and wait for hydration (the bot's player only mounts client-side). */
 async function home(page: Page) {
@@ -171,10 +173,10 @@ for (const [w, h] of VIEWPORTS) {
       expect(small).toEqual([]);
     });
 
-    test("bot, headline, form, use-case cards and carousel never overlap", async ({ page }) => {
+    test("bot, headline, form, emblem and carousel never overlap", async ({ page }) => {
       await home(page);
       const boxes = await Promise.all(
-        [BOT, "h1", FORM, PANEL, CAROUSEL].map(async (s) => ({ s, b: (await page.locator(s).first().boundingBox())! })),
+        [BOT, "h1", FORM, EMBLEM, CAROUSEL].map(async (s) => ({ s, b: (await page.locator(s).first().boundingBox())! })),
       );
       for (let i = 0; i < boxes.length; i++) {
         for (let j = i + 1; j < boxes.length; j++) {
@@ -186,22 +188,50 @@ for (const [w, h] of VIEWPORTS) {
         }
       }
       // Bot, headline and form run down the hero; the carousel sits beside the
-      // hero from lg up and below it otherwise; the use-case cards come after both.
-      const [bot, h1, form, panel, carousel] = boxes.map((x) => x.b);
+      // hero from lg up and below it otherwise; the emblem comes after both.
+      const [bot, h1, form, emblem, carousel] = boxes.map((x) => x.b);
       expect(bot.y).toBeLessThan(h1.y);
       expect(h1.y).toBeLessThan(form.y);
       if (w >= 1024) {
         expect(carousel.x).toBeGreaterThanOrEqual(form.x + form.width);
-        // The two columns are equal.
+        // The hero takes 60%, the carousel 40%.
         const cols = await page.locator("main > div").first().evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(" "));
         expect(cols).toHaveLength(2);
-        expect(Math.abs(parseFloat(cols[0]) - parseFloat(cols[1]))).toBeLessThan(1);
+        expect(parseFloat(cols[0]) / parseFloat(cols[1])).toBeCloseTo(1.5, 1);
       }
       else expect(carousel.y).toBeGreaterThanOrEqual(form.y + form.height);
-      expect(panel.y).toBeGreaterThanOrEqual(Math.max(form.y + form.height, carousel.y + carousel.height));
+      expect(emblem.y).toBeGreaterThanOrEqual(Math.max(form.y + form.height, carousel.y + carousel.height));
+    });
+
+    test("the button sits outside the email field", async ({ page }) => {
+      await home(page);
+      const field = (await page.locator("#email").boundingBox())!;
+      const button = (await page.locator(`${FORM} button[type=submit]`).boundingBox())!;
+      const ix = Math.max(0, Math.min(field.x + field.width, button.x + button.width) - Math.max(field.x, button.x));
+      const iy = Math.max(0, Math.min(field.y + field.height, button.y + button.height) - Math.max(field.y, button.y));
+      expect(ix * iy).toBe(0);
+      if (w >= 640) expect(button.x).toBeGreaterThanOrEqual(field.x + field.width);
+      else expect(button.y).toBeGreaterThanOrEqual(field.y + field.height);
+    });
+
+    test("the launch status sits top right and nothing links to contact", async ({ page }) => {
+      await home(page);
+      const status = page.locator(STATUS);
+      await expect(status).toHaveText("Building toward launch");
+      const box = (await status.boundingBox())!;
+      expect(box.y + box.height).toBeLessThan(80);
+      expect(box.x + box.width).toBeGreaterThan(w * 0.75);
+      await expect(page.locator('a[href*="contact"], a[href*="feedback"]')).toHaveCount(0);
+      const footer = await page.locator("footer").innerText();
+      for (const s of ["Explore", "Status", "Share feedback"]) expect(footer).not.toContain(s);
     });
   });
 }
+
+test("the contact page is gone", async ({ page }) => {
+  const res = await page.goto("/contact");
+  expect(res?.status()).toBe(404);
+});
 
 // ---------------------------------------------------------------- B. Validation (no writes)
 
@@ -246,9 +276,9 @@ test.describe("validation", () => {
     expect(g).toBeGreaterThan(b);
   });
 
-  test("Contact, the consent line and the carousel caption are black", async ({ page }) => {
+  test("the launch status, the consent line and the carousel caption are black", async ({ page }) => {
     await home(page);
-    for (const sel of ['header a[href="/contact"]', 'label[for="agreed"]', `${CAROUSEL} h3 + p`]) {
+    for (const sel of [STATUS, 'label[for="agreed"]', `${CAROUSEL} h3 + p`]) {
       const [r, g, b] = await rgbOf(page, sel, "color");
       expect(Math.max(r, g, b), sel).toBeLessThan(48);
     }
@@ -286,7 +316,7 @@ test.describe("validation", () => {
   });
 });
 
-// ---------------------------------------------------------------- C. Submissions (writes to Convex)
+// ---------------------------------------------------------------- C. Submissions (writes to the backend)
 
 test.describe("submission", () => {
   for (const [w, h] of VIEWPORTS) {
@@ -299,7 +329,6 @@ test.describe("submission", () => {
       await expect(done).toContainText("on the list", { timeout: 15_000 });
       await expect(done).toContainText("Your place is saved");
       await expect(page.locator(BOT)).toHaveAttribute("data-mood", "done");
-      await expect(page.getByLabel("Your referral link")).toHaveValue(/\?ref=[a-z0-9]{8}$/);
       expect(await bleeding(page)).toEqual([]);
     });
   }
@@ -629,13 +658,5 @@ test.describe("reduced motion", () => {
     await home(page);
     const opacities = await page.locator(".animate-rise").evaluateAll((els) => els.map((e) => getComputedStyle(e).opacity));
     expect(opacities.every((o) => o === "1")).toBe(true);
-  });
-
-  test("the use-case timer is hidden and does not advance", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await home(page);
-    await expect(page.locator(`${PANEL} .animate-groove`)).toBeHidden();
-    await page.waitForTimeout(800);
-    await expect(page.getByRole("tab", { name: "Plan" })).toHaveAttribute("aria-selected", "true");
   });
 });

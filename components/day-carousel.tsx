@@ -156,7 +156,7 @@ export function DayCarousel() {
                   src={s.src}
                   alt={s.alt}
                   fill
-                  sizes="(min-width: 1024px) 680px, calc(100vw - 32px)"
+                  sizes="(min-width: 1024px) 500px, calc(100vw - 32px)"
                   className="object-contain"
                   draggable={false}
                 />

@@ -20,8 +20,6 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   campaignHtml,
-  contactThanksHtml,
-  feedbackThanksHtml,
   waitlistConfirmationHtml,
 } from "@/convex/emails/templates";
 import { Button } from "@/components/ui/button";
@@ -438,20 +436,6 @@ function CampaignEditor({
                 Waitlist · {STATUS_LABEL[s]}
               </label>
             ))}
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={draft.audience.feedback}
-                onCheckedChange={(c) => set("audience", { ...draft.audience, feedback: c === true })}
-              />
-              Feedback senders
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={draft.audience.contact}
-                onCheckedChange={(c) => set("audience", { ...draft.audience, contact: c === true })}
-              />
-              Contact senders
-            </label>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             Up to <span className="text-foreground">{estimate ?? "…"}</span> recipients. Each address
@@ -574,8 +558,6 @@ function CampaignEditor({
 
 const TRANSACTIONAL = {
   welcome: { label: "Waitlist welcome", html: () => waitlistConfirmationHtml("Ada Lovelace") },
-  feedback: { label: "Feedback thanks", html: () => feedbackThanksHtml("Ada") },
-  contact: { label: "Contact receipt", html: () => contactThanksHtml("Ada") },
 };
 
 function TransactionalPreview() {

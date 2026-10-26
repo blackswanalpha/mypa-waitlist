@@ -3,8 +3,9 @@ import { defineConfig } from "@playwright/test";
 /**
  * The landing-page scenarios in e2e/. They run against a server you start
  * (`next build && next start -p 20301`, so CLS is measured on a production
- * build) and the Convex deployment in NEXT_PUBLIC_CONVEX_URL, which the
- * submission scenarios write to. Point E2E_BASE_URL elsewhere to retarget.
+ * build). The submission scenarios write through /api/waitlist to the
+ * backend in that server's BACKEND_URL, so start it with BACKEND_URL and
+ * BACKEND_SERVICE_KEY set. Point E2E_BASE_URL elsewhere to retarget.
  */
 export default defineConfig({
   testDir: "e2e",

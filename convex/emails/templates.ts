@@ -140,63 +140,6 @@ export function waitlistConfirmationHtml(name?: string): string {
   );
 }
 
-export function feedbackThanksHtml(name?: string): string {
-  const safeName = escapeHtml(name || "there");
-  return wrap(
-    "Thank you — your feedback just shaped MyPA",
-    `
-    <h1 style="margin:0 0 16px 0;font-size:24px;font-weight:600;color:${TEXT};">
-      Thank you, ${safeName}. This genuinely helps.
-    </h1>
-    <p style="margin:0 0 16px 0;color:${TEXT};">
-      Your note just landed with the MyPA team — and we mean the actual
-      people building the product, not a ticket queue. At this stage,
-      feedback like yours doesn't get filed away;
-      <strong style="color:${PRIMARY};">it decides what we build next</strong>.
-    </p>
-    <p style="margin:0 0 16px 0;color:${TEXT};">
-      We read every word, we discuss it as a team, and where it changes
-      MyPA you'll be able to tell. Thank you for caring enough to write —
-      early voices like yours are the ones a product remembers.
-    </p>
-    ${signOff()}
-    `,
-    {
-      receivingReason:
-        "You're receiving this because you shared feedback on MyPA's early-access page.",
-    },
-  );
-}
-
-export function contactThanksHtml(name: string): string {
-  const safeName = escapeHtml(name || "there");
-  return wrap(
-    "We've got your message — MyPA",
-    `
-    <h1 style="margin:0 0 16px 0;font-size:24px;font-weight:600;color:${TEXT};">
-      We've got it, ${safeName} — thank you for reaching out.
-    </h1>
-    <p style="margin:0 0 16px 0;color:${TEXT};">
-      Your message is safely with the MyPA team, and a real person is going
-      to read it — carefully. Here's what you can expect from us:
-    </p>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
-      ${step(1, "We read it properly", "No skimming. Your message gets the attention it deserves.")}
-      ${step(2, "We reply personally", `Usually within 1–2 business days, from a human at ${CONTACT_EMAIL}.`)}
-    </table>
-    <p style="margin:16px 0 0 0;color:${TEXT};">
-      Thanks for taking the time to write to us — conversations like this
-      one are how MyPA gets better.
-    </p>
-    ${signOff()}
-    `,
-    {
-      receivingReason:
-        "You're receiving this because you contacted the MyPA team.",
-    },
-  );
-}
-
 /** First word of a name, for "{{name}}" personalisation. */
 function firstName(name: string | undefined): string {
   return (name ?? "").trim().split(/\s+/)[0] || "there";
