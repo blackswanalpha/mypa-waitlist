@@ -5,8 +5,6 @@ import { v } from "convex/values";
 import {
   CONTACT_EMAIL,
   waitlistConfirmationHtml,
-  feedbackThanksHtml,
-  contactThanksHtml,
   adminNotifyHtml,
 } from "./templates";
 
@@ -67,77 +65,6 @@ export const sendWaitlistEmails = internalMutation({
           rows: [
             { label: "Name", value: name ?? "—" },
             { label: "Email", value: email },
-          ],
-        }),
-      });
-    }
-  },
-});
-
-export const sendFeedbackEmails = internalMutation({
-  args: {
-    name: v.optional(v.string()),
-    email: v.optional(v.string()),
-    rating: v.optional(v.number()),
-    message: v.string(),
-  },
-  handler: async (ctx, { name, email, rating, message }) => {
-    // Confirmation only when the sender left an email.
-    if (email) {
-      await resend.sendEmail(ctx, {
-        from: FROM,
-        to: email,
-        replyTo: REPLY_TO,
-        subject: "Thank you — your feedback just shaped MyPA",
-        html: feedbackThanksHtml(name),
-      });
-    }
-    for (const admin of adminEmails()) {
-      await resend.sendEmail(ctx, {
-        from: FROM,
-        to: admin,
-        subject: "New MyPA feedback",
-        html: adminNotifyHtml({
-          type: "Feedback",
-          rows: [
-            { label: "Name", value: name ?? "—" },
-            { label: "Email", value: email ?? "—" },
-            { label: "Rating", value: rating ? `${rating}/5` : "—" },
-            { label: "Message", value: message },
-          ],
-        }),
-      });
-    }
-  },
-});
-
-export const sendContactEmails = internalMutation({
-  args: {
-    name: v.string(),
-    email: v.string(),
-    subject: v.string(),
-    message: v.string(),
-  },
-  handler: async (ctx, { name, email, subject, message }) => {
-    await resend.sendEmail(ctx, {
-      from: FROM,
-      to: email,
-      replyTo: REPLY_TO,
-      subject: "We've got your message — MyPA",
-      html: contactThanksHtml(name),
-    });
-    for (const admin of adminEmails()) {
-      await resend.sendEmail(ctx, {
-        from: FROM,
-        to: admin,
-        subject: `New contact message: ${subject}`,
-        html: adminNotifyHtml({
-          type: "Contact",
-          rows: [
-            { label: "Name", value: name },
-            { label: "Email", value: email },
-            { label: "Subject", value: subject },
-            { label: "Message", value: message },
           ],
         }),
       });
