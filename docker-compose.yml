@@ -26,7 +26,7 @@ services:
   backend:
     profiles: ["selfhosted"]
     # Pin with CONVEX_TAG (backend + dashboard publish matching tags).
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_TAG:-latest}
+    image: ghcr.io/convex/convex-backend:${CONVEX_TAG:-latest}
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
@@ -61,7 +61,7 @@ services:
 
   dashboard:
     profiles: ["selfhosted"]
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_TAG:-latest}
+    image: ghcr.io/convex/convex-dashboard:${CONVEX_TAG:-latest}
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
