@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
@@ -17,17 +16,6 @@ export default function HomePage() {
           <div className="animate-rise w-full" style={{ animationDelay: "300ms" }}>
             <DayCarousel />
           </div>
-        </div>
-
-        <div className="animate-rise mx-auto mt-20 max-w-md pb-20 sm:pb-28 lg:mt-12" style={{ animationDelay: "380ms" }}>
-          <Image
-            src="/lime-puzzle.webp"
-            alt="The MyPA emblem: a lime puzzle piece fitting into three white ones"
-            width={960}
-            height={960}
-            sizes="(min-width: 640px) 448px, calc(100vw - 32px)"
-            className="aspect-square w-full rounded-[2rem]"
-          />
         </div>
       </main>
 

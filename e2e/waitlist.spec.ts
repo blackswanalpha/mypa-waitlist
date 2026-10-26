@@ -28,7 +28,6 @@ const REMOVED = [
 const FORM = 'form[aria-label="Join the MyPA waitlist"]';
 const BOT = "[data-mood]";
 const CAROUSEL = 'section[aria-roledescription="carousel"]';
-const EMBLEM = 'img[src*="lime-puzzle"]';
 const STATUS = "header p";
 
 /** Load the page and wait for hydration (the bot's player only mounts client-side). */
@@ -173,10 +172,10 @@ for (const [w, h] of VIEWPORTS) {
       expect(small).toEqual([]);
     });
 
-    test("bot, headline, form, emblem and carousel never overlap", async ({ page }) => {
+    test("bot, headline, form and carousel never overlap", async ({ page }) => {
       await home(page);
       const boxes = await Promise.all(
-        [BOT, "h1", FORM, EMBLEM, CAROUSEL].map(async (s) => ({ s, b: (await page.locator(s).first().boundingBox())! })),
+        [BOT, "h1", FORM, CAROUSEL].map(async (s) => ({ s, b: (await page.locator(s).first().boundingBox())! })),
       );
       for (let i = 0; i < boxes.length; i++) {
         for (let j = i + 1; j < boxes.length; j++) {
@@ -188,8 +187,8 @@ for (const [w, h] of VIEWPORTS) {
         }
       }
       // Bot, headline and form run down the hero; the carousel sits beside the
-      // hero from lg up and below it otherwise; the emblem comes after both.
-      const [bot, h1, form, emblem, carousel] = boxes.map((x) => x.b);
+      // hero from lg up and below it otherwise.
+      const [bot, h1, form, carousel] = boxes.map((x) => x.b);
       expect(bot.y).toBeLessThan(h1.y);
       expect(h1.y).toBeLessThan(form.y);
       if (w >= 1024) {
@@ -200,7 +199,6 @@ for (const [w, h] of VIEWPORTS) {
         expect(parseFloat(cols[0]) / parseFloat(cols[1])).toBeCloseTo(1.5, 1);
       }
       else expect(carousel.y).toBeGreaterThanOrEqual(form.y + form.height);
-      expect(emblem.y).toBeGreaterThanOrEqual(Math.max(form.y + form.height, carousel.y + carousel.height));
     });
 
     test("the button sits outside the email field", async ({ page }) => {
@@ -212,6 +210,14 @@ for (const [w, h] of VIEWPORTS) {
       expect(ix * iy).toBe(0);
       if (w >= 640) expect(button.x).toBeGreaterThanOrEqual(field.x + field.width);
       else expect(button.y).toBeGreaterThanOrEqual(field.y + field.height);
+    });
+
+    test("the header icon is the lime puzzle and the page holds no second copy", async ({ page }) => {
+      await home(page);
+      const icon = page.locator('header img[src*="lime-puzzle"]');
+      await expect(icon).toBeVisible();
+      await expect(page.locator('main img[src*="lime-puzzle"]')).toHaveCount(0);
+      await expect(page.locator('img[src*="favicon.svg"]')).toHaveCount(0);
     });
 
     test("the launch status sits top right and nothing links to contact", async ({ page }) => {
