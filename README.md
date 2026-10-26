@@ -181,7 +181,7 @@ a deploy out of band (recover a failed run, reconcile drift), use the workflow's
 ## 8. Docker (self-hosted, no Convex cloud)
 
 The repo also runs fully locally under docker-compose — a **self-hosted Convex
-backend** (official `ghcr.io/get-convex/convex-backend` image) + the Convex
+backend** (official `ghcr.io/convex/convex-backend` image) + the Convex
 dashboard + the Next.js app, with data persisted in a named volume
 (`convex-data`). No Convex account needed.
 
