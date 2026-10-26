@@ -1,4 +1,4 @@
-const CONTACT_EMAIL = "myexecpersonalassistant@gmail.com";
+export const CONTACT_EMAIL = "myexecpersonalassistant@gmail.com";
 
 export function Footer() {
   return (

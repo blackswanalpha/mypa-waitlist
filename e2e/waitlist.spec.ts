@@ -239,6 +239,27 @@ test("the contact page is gone", async ({ page }) => {
   expect(res?.status()).toBe(404);
 });
 
+test.describe("not found", () => {
+  for (const [w, h] of [
+    [320, 640],
+    [1440, 900],
+  ]) {
+    test(`an unknown address is a 404 that leads back to the waitlist at ${w}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      const res = await page.goto("/no-such-page");
+      expect(res?.status()).toBe(404);
+      await expect(page).toHaveTitle("Page not found — MyPA");
+      await expect(page.locator("h1")).toHaveText("This page isn’t here.");
+      await expect(page.locator(BOT)).toHaveAttribute("data-mood", "unsure");
+      await expect(page.locator('header img[src*="lime-puzzle"]')).toBeVisible();
+      expect(await bleeding(page)).toEqual([]);
+      await page.getByRole("link", { name: "Back to the waitlist" }).click();
+      await expect(page).toHaveURL(/\/$/);
+      await expect(page.locator(FORM)).toBeVisible();
+    });
+  }
+});
+
 // ---------------------------------------------------------------- B. Validation (no writes)
 
 test.describe("validation", () => {
