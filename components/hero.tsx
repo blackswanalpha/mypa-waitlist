@@ -9,7 +9,7 @@ export function Hero() {
   const [mood, setMood] = useState<BotMood>("idle");
 
   return (
-    <section className="mx-auto flex w-full max-w-xl flex-col items-center text-center">
+    <section className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
       <GlanceBot mood={mood} />
 
       <h1
@@ -19,7 +19,7 @@ export function Hero() {
         Your day, spoken into order<span className="text-fern">.</span>
       </h1>
 
-      <div className="animate-rise mt-7 w-full max-w-[27rem]" style={{ animationDelay: "220ms" }}>
+      <div className="animate-rise mt-7 w-full max-w-xl" style={{ animationDelay: "220ms" }}>
         <WaitlistForm onMood={setMood} />
       </div>
     </section>

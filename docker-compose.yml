@@ -94,6 +94,10 @@ services:
       # Server-side (middleware) URL — the compose-network backend by default;
       # override with the Convex Cloud URL when web is the only service in use.
       - CONVEX_SERVER_URL=${CONVEX_SERVER_URL:-http://backend:3210}
+      # The waitlist form's /api/waitlist route forwards signups to the
+      # product backend (mypa-backend) with this shared secret.
+      - BACKEND_URL=${BACKEND_URL:-}
+      - BACKEND_SERVICE_KEY=${BACKEND_SERVICE_KEY:-}
     healthcheck:
       test: wget -qO /dev/null http://127.0.0.1:4578/
       interval: 10s
