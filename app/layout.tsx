@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   icons: {
     icon: [
-      { url: "/favicon/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon/favicon.ico", sizes: "16x16 32x32 48x48" },
       { url: "/favicon/favicon-96x96.png", sizes: "96x96", type: "image/png" },
     ],
     apple: "/favicon/apple-touch-icon.png",
