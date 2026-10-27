@@ -7,7 +7,7 @@ import { CheckCircle2, Clock, LogOut, Users } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MyPALogo } from "@/components/mypa-logo";
+import { LimeLockup } from "@/components/lime-lockup";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard } from "@/components/admin/stat-card";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
@@ -27,8 +27,7 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-6 lg:px-12">
           <div className="flex items-center gap-3">
-            <MyPALogo showText />
-            <Badge variant="outline" className="font-mono">admin</Badge>
+            <LimeLockup descriptor="admin" />
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-muted-foreground sm:inline">
