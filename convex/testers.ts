@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./admin";
 import { bump, read } from "./counters";
 import { bumpDaily, utcDay } from "./analytics";
-import { limiter, MAX_EMAIL } from "./rateLimits";
+import { limiter, MAX_EMAIL, MAX_NAME, MAX_PHONE } from "./rateLimits";
 import type { SendEmailOptions } from "@convex-dev/resend";
 import { resend, FROM, REPLY_TO } from "./emails/send";
 import { adminNotifyHtml } from "./emails/templates";
@@ -40,6 +40,30 @@ type Settings = Pick<Doc<"programSettings">, "signupsOpen" | "slots" | "inviteLi
 const DEFAULTS: Settings = { signupsOpen: true, slots: DEFAULT_SLOTS, inviteLink: undefined, socials: [] };
 
 const capped = (s: string | undefined) => s?.trim().slice(0, MAX_ATTRIBUTION) || undefined;
+
+/** 7–15 digits, optionally led by +, with spaces, dashes, dots or brackets between. */
+const PHONE_RE = /^\+?[\d\s().-]{7,}$/;
+
+function cleanName(raw: string, which: "first" | "last"): string {
+  const name = raw.trim().replace(/\s+/g, " ");
+  if (!name) {
+    throw new ConvexError({ code: "invalid", message: `Add your ${which} name.` });
+  }
+  if (name.length > MAX_NAME) {
+    throw new ConvexError({ code: "invalid", message: `That ${which} name is too long.` });
+  }
+  return name;
+}
+
+function cleanPhone(raw: string | undefined): string | undefined {
+  const phone = raw?.trim().replace(/\s+/g, " ");
+  if (!phone) return undefined;
+  const digits = phone.replace(/\D/g, "").length;
+  if (phone.length > MAX_PHONE || !PHONE_RE.test(phone) || digits < 7 || digits > 15) {
+    throw new ConvexError({ code: "invalid", message: "That phone number doesn't look right." });
+  }
+  return phone;
+}
 
 /** Public site origin for links and images in mail. Not SITE_URL (that is the auth origin). */
 function publicOrigin(): string {
@@ -100,6 +124,9 @@ export const program = query({
  */
 export const apply = mutation({
   args: {
+    firstName: v.string(),
+    lastName: v.string(),
+    phone: v.optional(v.string()),
     email: v.string(),
     device: DEVICE,
     agreed: v.boolean(),
@@ -116,6 +143,9 @@ export const apply = mutation({
       return { duplicate: false, position: 0, slots: s.slots, status: "pending" as Status };
     }
 
+    const firstName = cleanName(args.firstName, "first");
+    const lastName = cleanName(args.lastName, "last");
+    const phone = cleanPhone(args.phone);
     const email = args.email.trim().toLowerCase();
     if (email.length > MAX_EMAIL || !EMAIL_RE.test(email)) {
       throw new ConvexError({ code: "invalid", message: "Please enter a valid email address." });
@@ -129,9 +159,9 @@ export const apply = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
     if (existing) {
-      // A returning visitor may correct their phone before they are approved.
-      if (existing.status === "pending" && existing.device !== args.device) {
-        await ctx.db.patch(existing._id, { device: args.device });
+      // A returning visitor may correct their details before they are approved.
+      if (existing.status === "pending") {
+        await ctx.db.patch(existing._id, { device: args.device, firstName, lastName, phone: phone ?? existing.phone });
       }
       return { duplicate: true, position: existing.position, slots: s.slots, status: existing.status };
     }
@@ -152,6 +182,9 @@ export const apply = mutation({
     const now = Date.now();
     const position = (await read(ctx, "testers:seq")) + 1;
     await ctx.db.insert("testers", {
+      firstName,
+      lastName,
+      phone,
       email,
       device: args.device,
       status: "pending",
@@ -182,7 +215,7 @@ export const apply = mutation({
           position <= s.slots
             ? `You're #${position} on the MyPA tester list`
             : "You're on the MyPA waitlist",
-        html: testerReceivedHtml({ position, slots: s.slots, device: args.device }),
+        html: testerReceivedHtml({ position, slots: s.slots, device: args.device, firstName }),
       });
     } catch (e) {
       console.error("testers.apply: could not queue the confirmation for", email, e);
@@ -192,11 +225,13 @@ export const apply = mutation({
         await resend.sendEmail(ctx, {
           from: FROM,
           to: admin,
-          subject: `New tester signup #${position}: ${email}`,
+          subject: `New tester signup #${position}: ${firstName} ${lastName}`,
           html: adminNotifyHtml({
             type: "Tester signup",
             rows: [
+              { label: "Name", value: `${firstName} ${lastName}` },
               { label: "Email", value: email },
+              { label: "Mobile", value: phone ?? "—" },
               { label: "Phone", value: args.device },
               { label: "Position", value: `#${position} (${s.slots} tester spots)` },
             ],
@@ -334,7 +369,7 @@ async function sendGuide(ctx: MutationCtx, row: Doc<"testers">, inviteLink: stri
     to: row.email,
     replyTo: REPLY_TO,
     subject: "You're in: your MyPA tester invite and install guide",
-    html: testerGuideHtml({ device: row.device, inviteLink, email: row.email, origin: publicOrigin() }),
+    html: testerGuideHtml({ device: row.device, inviteLink, email: row.email, firstName: row.firstName, origin: publicOrigin() }),
   });
   await ctx.db.patch(row._id, {
     guideEmailId: emailId,

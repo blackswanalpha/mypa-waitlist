@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Header } from "@/components/header";
@@ -13,16 +12,21 @@ export const dynamic = "force-dynamic";
 const FALLBACK: Program = { open: true, slots: 40, spotsLeft: 40, socials: [] };
 
 /**
- * One Convex read per 15s however many visitors arrive, so traffic does not
- * turn into function calls one for one. An admin's open/close shows within
- * 15s; the apply mutation enforces it immediately either way. Failures are
- * not cached.
+ * One Convex read per 15s per server, however many visitors arrive, so
+ * traffic does not turn into function calls one for one. Once 15s pass the
+ * next visitor waits for a fresh read (never stale-while-revalidate, which
+ * could show "closed" long after an admin reopens on a quiet site). The apply
+ * mutation enforces a close immediately either way. Failures are not cached.
  */
-const readProgram = unstable_cache(
-  async (url: string) => new ConvexHttpClient(url).query(api.testers.program, {}),
-  ["testers-program"],
-  { revalidate: 15 },
-);
+const TTL_MS = 15_000;
+let cached: { at: number; value: Program } | null = null;
+
+async function readProgram(url: string): Promise<Program> {
+  if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
+  const value = await new ConvexHttpClient(url).query(api.testers.program, {});
+  cached = { at: Date.now(), value };
+  return value;
+}
 
 /**
  * Never lets Convex take the landing page down: an unreachable deployment, a

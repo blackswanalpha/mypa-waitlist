@@ -202,7 +202,7 @@ export function TestersTab() {
                 />
               </TableHead>
               <TableHead className="w-14">#</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Tester</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead>Status</TableHead>
@@ -248,7 +248,17 @@ export function TestersTab() {
                         {r.position}
                       </span>
                     </TableCell>
-                    <TableCell className="font-medium">{r.email}</TableCell>
+                    <TableCell>
+                      <p className="font-medium text-foreground">
+                        {[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{r.email}</p>
+                      {r.phone && (
+                        <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="text-xs text-muted-foreground underline-offset-2 hover:underline">
+                          {r.phone}
+                        </a>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <select
                         aria-label={`Phone for ${r.email}`}

@@ -36,9 +36,12 @@ async function rgb(page: Page, sel: string, prop: string): Promise<[number, numb
   }, prop);
 }
 
-async function join(page: Page, email: string, phone: "Samsung" | "Other Android" | "iPhone") {
+async function join(page: Page, email: string, phone: "Samsung" | "Other Android" | "iPhone", mobile = "") {
   await page.goto("/");
   await page.getByRole("radio", { name: phone }).click();
+  await page.fill("#firstName", "Grace");
+  await page.fill("#lastName", phone === "iPhone" ? "Apple" : "Hopper");
+  if (mobile) await page.fill("#phone", mobile);
   await page.fill("#email", email);
   await page.locator(`${FORM} button[type=submit]`).click();
   await expect(page.locator('[role="status"]')).toContainText(email, { timeout: 15_000 });
@@ -96,10 +99,16 @@ test("the join button is pure black with no shadow or gradient, hovered or not",
   }
 });
 
-test("the API refuses a missing phone and accepts the honeypot silently", async ({ request }) => {
-  const bad = await request.post("/api/waitlist", { data: { email: uniqueEmail("api"), agreed: true } });
+test("the API refuses a missing phone or name and accepts the honeypot silently", async ({ request }) => {
+  const names = { firstName: "Grace", lastName: "Hopper" };
+  const bad = await request.post("/api/waitlist", { data: { ...names, email: uniqueEmail("api"), agreed: true } });
   expect(bad.status()).toBe(400);
   expect((await bad.json()).error).toContain("Pick your phone");
+  const noName = await request.post("/api/waitlist", {
+    data: { firstName: " ", lastName: "Hopper", email: uniqueEmail("api"), device: "android", agreed: true },
+  });
+  expect(noName.status()).toBe(400);
+  expect((await noName.json()).error).toBe("Add your first name.");
   const bot = await request.post("/api/waitlist", {
     data: { email: uniqueEmail("bot"), device: "android", agreed: true, website: "spam" },
   });
@@ -127,7 +136,7 @@ test.describe("admin", () => {
 
   test("signups land in the Testers tab with their phone", async ({ page, browser }) => {
     const visitor = await browser.newPage();
-    await join(visitor, samsung, "Samsung");
+    await join(visitor, samsung, "Samsung", "+254 712 345 678");
     await join(visitor, android, "Other Android");
     await join(visitor, iphone, "iPhone");
     await visitor.close();
@@ -142,7 +151,9 @@ test.describe("admin", () => {
       await expect(row(page, email)).toBeVisible({ timeout: 15_000 });
       await expect(row(page, email).locator("select")).toHaveValue(phone);
       await expect(row(page, email)).toContainText("Pending");
+      await expect(row(page, email)).toContainText(phone === "iphone" ? "Grace Apple" : "Grace Hopper");
     }
+    await expect(row(page, samsung)).toContainText("+254 712 345 678");
   });
 
   test("approving needs the invite link, and an iPhone can't be approved", async ({ page }) => {
@@ -228,13 +239,20 @@ test.describe("admin", () => {
       await visitor.close();
 
       const res = await request.post("/api/waitlist", {
-        data: { email: uniqueEmail("closed"), device: "android", agreed: true },
+        data: { firstName: "Grace", lastName: "Hopper", email: uniqueEmail("closed"), device: "android", agreed: true },
       });
       expect(res.status()).toBe(409);
       expect((await res.json()).code).toBe("closed");
     } finally {
       await page.locator('[data-action="toggle-signups"]').click();
       await expect(page.getByText("Signups open.")).toBeVisible();
+      // Wait out the landing's 15s cache so later projects see the form again.
+      const check = await browser.newPage();
+      await expect(async () => {
+        await check.goto("/");
+        await expect(check.locator(FORM)).toBeVisible({ timeout: 1_000 });
+      }).toPass({ timeout: 40_000, intervals: [2_000] });
+      await check.close();
     }
   });
 

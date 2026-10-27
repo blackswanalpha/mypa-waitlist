@@ -36,9 +36,11 @@ async function home(page: Page) {
   await page.locator(`${BOT} svg`).first().waitFor();
 }
 
-/** The phone question comes first; most scenarios just pick one. */
+/** Phone and names come before the email; most scenarios just fill them. */
 async function pickPhone(page: Page, label = "Other Android") {
   await page.getByRole("radio", { name: label }).click();
+  await page.fill("#firstName", "Ada");
+  await page.fill("#lastName", "Lovelace");
 }
 
 function uniqueEmail(tag: string) {
@@ -283,6 +285,26 @@ test.describe("validation", () => {
     await expect(page.getByRole("radio", { name: "iPhone" })).toHaveAttribute("aria-checked", "true");
   });
 
+  test("a missing first or last name is asked for, in that order", async ({ page }) => {
+    await home(page);
+    await page.getByRole("radio", { name: "Samsung" }).click();
+    await page.fill("#email", uniqueEmail("noname"));
+    await page.locator(`${FORM} button[type=submit]`).click();
+    await expect(page.locator("#waitlist-message")).toHaveText("Add your first name.");
+    await page.fill("#firstName", "Ada");
+    await page.locator(`${FORM} button[type=submit]`).click();
+    await expect(page.locator("#waitlist-message")).toHaveText("Add your last name.");
+  });
+
+  test("a phone number is optional but must look like one", async ({ page }) => {
+    await home(page);
+    await pickPhone(page);
+    await page.fill("#email", uniqueEmail("badphone"));
+    await page.fill("#phone", "12ab");
+    await page.locator(`${FORM} button[type=submit]`).click();
+    await expect(page.locator("#waitlist-message")).toHaveText("That phone number doesn’t look right.");
+  });
+
   test("empty submit asks for an email and the bot is unsure", async ({ page }) => {
     await home(page);
     await pickPhone(page);
@@ -389,6 +411,7 @@ test.describe("submission", () => {
     await home(page);
     const email = uniqueEmail("norm").toUpperCase();
     await pickPhone(page);
+    await page.fill("#phone", "+254 712 345 678");
     await page.fill("#email", `  ${email}  `);
     await page.locator(`${FORM} button[type=submit]`).click();
     await expect(page.locator('[role="status"]')).toContainText(email.toLowerCase(), { timeout: 15_000 });
