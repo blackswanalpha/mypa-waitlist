@@ -129,6 +129,23 @@ test("the guide page has five steps on Android and seven on Samsung, with every 
   }
 });
 
+test("the admin login shows the lime mark and the eye reveals the password", async ({ page }) => {
+  await page.goto("/admin");
+  const password = page.locator("#admin-password");
+  await expect(password).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('img[src*="lime-puzzle"]').first()).toBeVisible();
+  await expect(page.locator('img[src*="logo.svg"], img[src*="logo-light.svg"]')).toHaveCount(0);
+
+  await password.fill("not-a-real-password");
+  await expect(password).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Show password" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(page.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Hide password" }).click();
+  await expect(password).toHaveAttribute("type", "password");
+  await expect(password).toHaveValue("not-a-real-password");
+});
+
 test.describe("admin", () => {
   const samsung = uniqueEmail("samsung");
   const android = uniqueEmail("android");

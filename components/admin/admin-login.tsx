@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MyPALogo } from "@/components/mypa-logo";
+import { LimeLockup } from "@/components/lime-lockup";
 
 export function AdminLogin() {
   const { signIn } = useAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,11 +49,11 @@ export function AdminLogin() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
+      <LimeLockup descriptor="admin" size={44} />
+      <Card className="w-full max-w-sm rounded-[6px]">
         <CardHeader className="items-center text-center">
-          <MyPALogo />
-          <CardTitle className="pt-2">Admin access</CardTitle>
+          <CardTitle>Admin access</CardTitle>
           <CardDescription>
             {flow === "signIn"
               ? "Sign in to view submissions."
@@ -74,13 +75,26 @@ export function AdminLogin() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-password">Password</Label>
-              <Input
-                id="admin-password"
-                name="password"
-                type="password"
-                autoComplete={flow === "signIn" ? "current-password" : "new-password"}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="admin-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={flow === "signIn" ? "current-password" : "new-password"}
+                  className="pr-11"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  aria-controls="admin-password"
+                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             {error && (
               <p role="alert" className="text-sm text-destructive">
