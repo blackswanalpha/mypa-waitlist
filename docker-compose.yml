@@ -99,7 +99,9 @@ services:
       - BACKEND_URL=${BACKEND_URL:-}
       - BACKEND_SERVICE_KEY=${BACKEND_SERVICE_KEY:-}
     healthcheck:
-      test: wget -qO /dev/null http://127.0.0.1:4578/
+      # A static file: "/" reads the tester program from Convex, so probing it
+      # every 10s spent ~260k Convex function calls a month on health checks.
+      test: wget -qO /dev/null http://127.0.0.1:4578/robots.txt
       interval: 10s
       start_period: 15s
     # No depends_on on backend: it's profile-gated (absent in prod), and the
