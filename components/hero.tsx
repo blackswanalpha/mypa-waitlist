@@ -17,7 +17,10 @@ export function Hero({ program }: { program: Program }) {
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
-      <GlanceBot mood={mood} />
+      {/* Smaller on phones so the whole form, button included, fits one screen. */}
+      <div className="max-sm:-my-3 max-sm:scale-[0.8] [@media(max-width:639px)_and_(max-height:800px)]:-my-7 [@media(max-width:639px)_and_(max-height:800px)]:scale-[0.6]">
+        <GlanceBot mood={mood} />
+      </div>
 
       <h1
         className="animate-rise whitespace-nowrap font-display text-[clamp(1.25rem,6.1vw,2rem)] font-medium leading-tight tracking-[-0.03em] text-foreground"
@@ -26,7 +29,7 @@ export function Hero({ program }: { program: Program }) {
         Your day, spoken into order<span className="text-fern">.</span>
       </h1>
 
-      <div className="animate-rise mt-6 w-full max-w-xl" style={{ animationDelay: "220ms" }}>
+      <div className="animate-rise mt-4 w-full max-w-xl sm:mt-6" style={{ animationDelay: "220ms" }}>
         {closed ? (
           <ClosedCard slots={program.slots} socials={program.socials} />
         ) : (
