@@ -33,7 +33,10 @@ yarn-error.log*
 
 # convex (generated; recreated by `convex dev` / `convex deploy`)
 .convex/
-convex/_generated/
+# convex/_generated/ is committed: Coolify's Docker build uses it as-is
+# instead of running `convex codegen` with a production deploy key.
+# Regenerate with `npx convex dev` (or `npx convex codegen`) and commit it
+# with any change under convex/.
 
 # typescript
 *.tsbuildinfo
