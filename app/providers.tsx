@@ -11,8 +11,8 @@ import { Analytics } from "@/components/analytics";
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // The public pages are white-only. A stored "dark" from the old default
-  // would otherwise win, so force light everywhere but the admin console.
+  // The public pages are white-only, so force light everywhere but the admin
+  // console, which opens light and carries its own dark toggle.
   const pathname = usePathname();
   const forcedTheme = pathname?.startsWith("/admin") ? undefined : "light";
 
@@ -20,8 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ConvexAuthNextjsProvider client={convex}>
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
+        defaultTheme="light"
         enableSystem={false}
+        disableTransitionOnChange
         forcedTheme={forcedTheme}
       >
         {children}

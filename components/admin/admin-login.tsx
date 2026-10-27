@@ -2,19 +2,12 @@
 
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowPathIcon, ArrowRightIcon, EyeIcon, EyeSlashIcon, LockClosedIcon } from "@heroicons/react/16/solid";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { LimeLockup } from "@/components/lime-lockup";
 
 export function AdminLogin() {
@@ -49,29 +42,31 @@ export function AdminLogin() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
-      <LimeLockup descriptor="admin" size={44} />
-      <Card className="w-full max-w-sm rounded-[6px]">
-        <CardHeader className="items-center text-center">
-          <CardTitle>Admin access</CardTitle>
-          <CardDescription>
-            {flow === "signIn"
-              ? "Sign in to view submissions."
-              : "Create the admin account (allowlisted emails only)."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-5 py-12">
+      {/* One soft lime glow behind the card; still, so the eye goes to the form. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[-18rem] h-[36rem] w-[56rem] -translate-x-1/2 rounded-full opacity-[0.16] blur-3xl dark:opacity-[0.10]"
+        style={{ background: "radial-gradient(closest-side, var(--brand), transparent)" }}
+      />
+
+      <div className="relative w-full max-w-[400px] animate-view-in">
+        <div className="flex justify-center">
+          <LimeLockup descriptor="admin" size={44} />
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-border bg-card p-7 shadow-float">
+          <h1 className="font-heading text-2xl font-semibold tracking-[-0.025em] text-foreground">
+            {flow === "signIn" ? "Welcome back" : "Create the admin account"}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {flow === "signIn" ? "Sign in to review testers and send updates." : "Allowlisted emails only, while sign-up is switched on."}
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-7 space-y-5">
             <div className="space-y-2">
               <Label htmlFor="admin-email">Email</Label>
-              <Input
-                id="admin-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                required
-              />
+              <Input id="admin-email" name="email" type="email" autoComplete="email" placeholder="you@mypa.computer" className="h-10" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-password">Password</Label>
@@ -81,7 +76,7 @@ export function AdminLogin() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete={flow === "signIn" ? "current-password" : "new-password"}
-                  className="pr-11"
+                  className="h-10 pr-11"
                   required
                 />
                 <button
@@ -90,35 +85,42 @@ export function AdminLogin() {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
                   aria-controls="admin-password"
-                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                  className="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
                 </button>
               </div>
             </div>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive ring-1 ring-inset ring-destructive/20 animate-in fade-in-0 duration-200">
                 {error}
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting && <Loader2 className="animate-spin" />}
+            <Button type="submit" variant="brand" className="h-10 w-full" disabled={submitting}>
+              {submitting ? <ArrowPathIcon className="animate-spin" /> : null}
               {flow === "signIn" ? "Sign in" : "Create account"}
+              {!submitting && <ArrowRightIcon />}
             </Button>
           </form>
 
           <button
             type="button"
-            onClick={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}
-            className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setFlow(flow === "signIn" ? "signUp" : "signIn");
+              setError(null);
+            }}
+            className="mt-5 w-full text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            {flow === "signIn"
-              ? "First time? Create the admin account"
-              : "Already have an account? Sign in"}
+            {flow === "signIn" ? "First time? Create the admin account" : "Already have an account? Sign in"}
           </button>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+          <LockClosedIcon className="size-3.5" />
+          Restricted to allowlisted admins
+        </p>
+      </div>
     </div>
   );
 }

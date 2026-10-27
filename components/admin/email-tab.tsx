@@ -1,19 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Copy,
-  Loader2,
-  Mail,
-  Plus,
-  Send,
-  Square,
-  Trash2,
-} from "lucide-react";
+  ArrowPathIcon,
+  DocumentDuplicateIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  PaperAirplaneIcon,
+  PlusIcon,
+  StopIcon,
+  TrashIcon,
+} from "@heroicons/react/16/solid";
+import { InboxStackIcon, NoSymbolIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
 import { api } from "@/convex/_generated/api";
@@ -35,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState, Eyebrow, Panel, Segmented, SkeletonRows, StatusPill, type Tone } from "@/components/admin/kit";
 import { cn } from "@/lib/utils";
 
 type Campaign = Doc<"campaigns">;
@@ -92,29 +93,52 @@ function fmt(ts?: number) {
     : "—";
 }
 
+const CAMPAIGN_TONE: Record<Campaign["status"], Tone> = {
+  draft: "neutral",
+  sending: "info",
+  sent: "brand",
+  cancelled: "danger",
+};
+
 function statusBadge(status: Campaign["status"]) {
-  const tone = {
-    draft: "bg-muted text-muted-foreground",
-    sending: "bg-primary/15 text-primary",
-    sent: "bg-fern/15 text-fern",
-    cancelled: "bg-destructive/10 text-destructive",
-  }[status];
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium capitalize", tone)}>
+    <StatusPill tone={CAMPAIGN_TONE[status]} className="capitalize">
       {status}
-    </span>
+    </StatusPill>
   );
 }
 
-/** Sandboxed render of an email exactly as the pipeline builds it. */
+const TABLE =
+  "[&_td]:px-3 [&_td]:py-2.5 [&_th]:h-10 [&_th]:px-3 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground [&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4";
+
+/** Sandboxed render of an email exactly as the pipeline builds it, scaled down to fit its column. */
+const EMAIL_W = 640;
+const EMAIL_H = 680;
+
 function EmailPreview({ html, className }: { html: string; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setScale(Math.min(1, entry.contentRect.width / EMAIL_W)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <iframe
-      title="Email preview"
-      sandbox=""
-      srcDoc={html}
-      className={cn("h-[640px] w-full rounded-lg border border-border bg-[#141b17]", className)}
-    />
+    <div
+      ref={ref}
+      className={cn("overflow-hidden rounded-xl border border-border bg-[#141b17] shadow-float", className)}
+      style={{ height: EMAIL_H * scale }}
+    >
+      <iframe
+        title="Email preview"
+        sandbox=""
+        srcDoc={html}
+        className="block border-0"
+        style={{ width: EMAIL_W, height: EMAIL_H, transform: `scale(${scale})`, transformOrigin: "0 0" }}
+      />
+    </div>
   );
 }
 
@@ -135,25 +159,29 @@ function ConfigStrip() {
     );
 
   return (
-    <div className="border-b border-border p-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
+    <div className="border-b border-border px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
         <span>
-          From <span className="text-foreground">{cfg.from}</span>
+          From <span className="font-medium text-foreground">{cfg.from}</span>
         </span>
         <span>
-          Replies to <span className="text-foreground">{cfg.replyTo}</span>
+          Replies to <span className="font-medium text-foreground">{cfg.replyTo}</span>
         </span>
-        {issues.length === 0 && (
-          <span className="flex items-center gap-1 text-fern">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Ready to send
-          </span>
+        {issues.length === 0 ? (
+          <StatusPill tone="brand" className="ml-auto">
+            Ready to send
+          </StatusPill>
+        ) : (
+          <StatusPill tone="warn" className="ml-auto">
+            {issues.length} setup issue{issues.length === 1 ? "" : "s"}
+          </StatusPill>
         )}
       </div>
       {issues.length > 0 && (
-        <ul className="mt-3 space-y-1.5">
+        <ul className="mt-3 space-y-1.5 rounded-xl bg-warn/10 px-3.5 py-3 ring-1 ring-inset ring-warn/25">
           {issues.map((i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-amber-500">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            <li key={i} className="flex items-start gap-2 text-xs text-foreground">
+              <ExclamationTriangleIcon className="mt-0.5 size-3.5 flex-none text-warn" />
               {i}
             </li>
           ))}
@@ -166,11 +194,11 @@ function ConfigStrip() {
 function Stat({ label, value, of }: { label: string; value: number; of?: number }) {
   const pct = of ? Math.round((value / of) * 100) : undefined;
   return (
-    <div className="rounded-lg border border-border p-3">
+    <div className="rounded-xl border border-border bg-surface/60 p-3.5">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-light tabular-nums text-foreground">
+      <p className="mt-1.5 font-heading text-2xl font-semibold tabular-nums tracking-[-0.02em] text-foreground">
         {value.toLocaleString()}
-        {pct !== undefined && <span className="ml-1.5 text-xs text-muted-foreground">{pct}%</span>}
+        {pct !== undefined && <span className="ml-1.5 font-sans text-xs font-normal text-muted-foreground">{pct}%</span>}
       </p>
     </div>
   );
@@ -182,15 +210,14 @@ function Recipients({ id }: { id: Id<"campaigns"> }) {
     { id },
     { initialNumItems: 25 },
   );
-  if (status === "LoadingFirstPage")
-    return <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (status === "LoadingFirstPage") return <SkeletonRows rows={3} />;
   if (results.length === 0)
-    return <p className="py-6 text-center text-sm text-muted-foreground">No recipients yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">No recipients yet.</p>;
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
+      <Table className={TABLE}>
+        <TableHeader className="bg-surface/60">
+          <TableRow className="hover:bg-transparent">
             <TableHead>Recipient</TableHead>
             <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
@@ -207,7 +234,7 @@ function Recipients({ id }: { id: Id<"campaigns"> }) {
                 <span
                   className={cn(
                     "text-xs",
-                    r.status === "delivered" && "text-fern",
+                    r.status === "delivered" && "text-brand-ink",
                     (r.status === "bounced" || r.status === "failed" || r.status === "complained") &&
                       "text-destructive",
                   )}
@@ -225,8 +252,8 @@ function Recipients({ id }: { id: Id<"campaigns"> }) {
         </TableBody>
       </Table>
       {status === "CanLoadMore" && (
-        <div className="flex justify-center py-3">
-          <Button variant="outline" size="sm" onClick={() => loadMore(50)}>
+        <div className="flex justify-center border-t border-border py-3">
+          <Button variant="ghost" size="sm" onClick={() => loadMore(50)}>
             Load more
           </Button>
         </div>
@@ -246,7 +273,7 @@ function CampaignReport({ campaign }: { campaign: Campaign }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-serif text-2xl text-foreground">{campaign.name}</h3>
+            <h3 className="font-heading text-xl font-semibold tracking-[-0.02em] text-foreground">{campaign.name}</h3>
             {statusBadge(campaign.status)}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -261,7 +288,7 @@ function CampaignReport({ campaign }: { campaign: Campaign }) {
               size="sm"
               onClick={() => cancel({ id: campaign._id }).catch((e) => toast.error(errMsg(e)))}
             >
-              <Square className="h-3.5 w-3.5" /> Stop sending
+              <StopIcon /> Stop sending
             </Button>
           )}
           <Button
@@ -273,14 +300,14 @@ function CampaignReport({ campaign }: { campaign: Campaign }) {
                 .catch((e) => toast.error(errMsg(e)))
             }
           >
-            <Copy className="h-3.5 w-3.5" /> Duplicate
+            <DocumentDuplicateIcon /> Duplicate
           </Button>
         </div>
       </div>
 
       {campaign.status === "sending" && (
-        <p className="flex items-center gap-2 text-sm text-primary">
-          <Loader2 className="h-4 w-4 animate-spin" /> Queuing recipients in batches of 100…
+        <p className="flex items-center gap-2 text-sm text-viz-views">
+          <ArrowPathIcon className="size-4 animate-spin" /> Queuing recipients in batches of 100…
         </p>
       )}
 
@@ -297,13 +324,13 @@ function CampaignReport({ campaign }: { campaign: Campaign }) {
 
       <div className="grid gap-6 2xl:grid-cols-2">
         <div className="min-w-0">
-          <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Recipients</p>
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <Eyebrow className="mb-2">Recipients</Eyebrow>
+          <div className="overflow-x-auto rounded-xl border border-border">
             <Recipients id={campaign._id} />
           </div>
         </div>
         <div className="min-w-0">
-          <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">What was sent</p>
+          <Eyebrow className="mb-2">What was sent</Eyebrow>
           <EmailPreview html={html} />
         </div>
       </div>
@@ -379,7 +406,7 @@ function CampaignEditor({
     });
 
   return (
-    <div className="grid gap-8 xl:grid-cols-2">
+    <div className="grid gap-8 2xl:grid-cols-2">
       <div className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="c-name">Campaign name (internal)</Label>
@@ -424,8 +451,8 @@ function CampaignEditor({
           </div>
         </div>
 
-        <fieldset className="rounded-lg border border-border p-4">
-          <legend className="px-1 text-sm font-medium">Audience</legend>
+        <fieldset className="rounded-xl border border-border p-4">
+          <legend className="px-1 font-heading text-sm font-semibold">Audience</legend>
           <div className="flex flex-wrap gap-x-6 gap-y-3">
             {(Object.keys(STATUS_LABEL) as WaitlistStatus[]).map((s) => (
               <label key={s} className="flex items-center gap-2 text-sm">
@@ -438,13 +465,14 @@ function CampaignEditor({
             ))}
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Up to <span className="text-foreground">{estimate ?? "…"}</span> recipients. Each address
+            Up to <span className="font-medium text-foreground tabular-nums">{estimate ?? "…"}</span> recipients. Each address
             gets one copy; unsubscribed, bounced and spam-reporting addresses are skipped.
           </p>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-5">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
+            variant="outline"
             disabled={!dirty || busy !== null}
             onClick={() =>
               run("save", async () => {
@@ -452,8 +480,8 @@ function CampaignEditor({
               })
             }
           >
-            {busy === "save" && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save draft
+            {busy === "save" && <ArrowPathIcon className="animate-spin" />}
+            {dirty ? "Save draft" : "Saved"}
           </Button>
           {campaign && (
             <Button
@@ -472,12 +500,12 @@ function CampaignEditor({
                 })
               }
             >
-              <Trash2 className="h-4 w-4" /> Delete
+              <TrashIcon /> Delete
             </Button>
           )}
         </div>
 
-        <div className="space-y-3 rounded-lg border border-border p-4">
+        <div className="space-y-4 rounded-xl border border-border bg-surface/60 p-4">
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-56 flex-1 space-y-2">
               <Label htmlFor="c-test">Send a test to</Label>
@@ -499,22 +527,23 @@ function CampaignEditor({
                 })
               }
             >
-              {busy === "test" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {busy === "test" ? <ArrowPathIcon className="animate-spin" /> : <EnvelopeIcon />}
               Send test
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
             {!confirming ? (
-              <Button disabled={busy !== null || !estimate} onClick={() => setConfirming(true)}>
-                <Send className="h-4 w-4" /> Send to audience
+              <Button variant="brand" disabled={busy !== null || !estimate} onClick={() => setConfirming(true)}>
+                <PaperAirplaneIcon /> Send to audience
               </Button>
             ) : (
               <>
-                <span className="text-sm">
+                <span className="w-full text-sm text-foreground">
                   Send &ldquo;{draft.subject || "untitled"}&rdquo; to up to {estimate} people?
                 </span>
                 <Button
+                  variant="brand"
                   disabled={busy !== null}
                   onClick={() =>
                     run("send", async () => {
@@ -530,7 +559,7 @@ function CampaignEditor({
                     })
                   }
                 >
-                  {busy === "send" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {busy === "send" && <ArrowPathIcon className="animate-spin" />}
                   Yes, send now
                 </Button>
                 <Button variant="ghost" onClick={() => setConfirming(false)}>
@@ -543,10 +572,8 @@ function CampaignEditor({
       </div>
 
       <div>
-        <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">
-          Live preview · as “Ada Lovelace”
-        </p>
-        <p className="mb-2 text-sm">
+        <Eyebrow className="mb-2">Live preview · as “Ada Lovelace”</Eyebrow>
+        <p className="mb-3 truncate text-sm">
           <span className="text-foreground">{draft.subject || "Subject"}</span>
           <span className="text-muted-foreground"> — {draft.preheader || "preview text"}</span>
         </p>
@@ -564,18 +591,17 @@ function TransactionalPreview() {
   const [which, setWhich] = useState<keyof typeof TRANSACTIONAL>("welcome");
   const html = useMemo(() => TRANSACTIONAL[which].html(), [which]);
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-5">
       <p className="text-sm text-muted-foreground">
         Sent automatically on every submission. Copy lives in{" "}
-        <code>convex/emails/templates.ts</code>.
+        <code className="rounded bg-surface px-1 py-0.5 font-mono text-xs text-foreground">convex/emails/templates.ts</code>.
       </p>
-      <div className="flex gap-2">
-        {(Object.keys(TRANSACTIONAL) as (keyof typeof TRANSACTIONAL)[]).map((k) => (
-          <Button key={k} size="sm" variant={k === which ? "default" : "outline"} onClick={() => setWhich(k)}>
-            {TRANSACTIONAL[k].label}
-          </Button>
-        ))}
-      </div>
+      <Segmented
+        label="Automatic email"
+        value={which}
+        onChange={setWhich}
+        items={(Object.keys(TRANSACTIONAL) as (keyof typeof TRANSACTIONAL)[]).map((k) => ({ value: k, label: TRANSACTIONAL[k].label }))}
+      />
       <EmailPreview html={html} className="max-w-2xl" />
     </div>
   );
@@ -587,19 +613,14 @@ function Suppressions() {
     {},
     { initialNumItems: 50 },
   );
-  if (status === "LoadingFirstPage")
-    return <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (status === "LoadingFirstPage") return <SkeletonRows rows={3} />;
   if (results.length === 0)
-    return (
-      <p className="py-10 text-center text-sm text-muted-foreground">
-        Nobody has unsubscribed, bounced or reported spam.
-      </p>
-    );
+    return <EmptyState icon={NoSymbolIcon} title="A clean list" body="Nobody has unsubscribed, bounced or reported spam." />;
   return (
-    <div className="p-2">
-      <Table>
-        <TableHeader>
-          <TableRow>
+    <div>
+      <Table className={TABLE}>
+        <TableHeader className="bg-surface/60">
+          <TableRow className="hover:bg-transparent">
             <TableHead>Address</TableHead>
             <TableHead>Reason</TableHead>
             <TableHead>When</TableHead>
@@ -616,8 +637,8 @@ function Suppressions() {
         </TableBody>
       </Table>
       {status === "CanLoadMore" && (
-        <div className="flex justify-center py-3">
-          <Button variant="outline" size="sm" onClick={() => loadMore(50)}>
+        <div className="flex justify-center border-t border-border py-3">
+          <Button variant="ghost" size="sm" onClick={() => loadMore(50)}>
             Load more
           </Button>
         </div>
@@ -637,61 +658,69 @@ export function EmailTab({ adminEmail }: { adminEmail: string }) {
     active === "new" ? null : campaigns?.find((c) => c._id === active) ?? null;
 
   return (
-    <div>
+    <Panel className="overflow-hidden">
       <ConfigStrip />
-      <div className="flex gap-1 border-b border-border px-4 py-2">
-        {(
-          [
-            ["campaigns", "Campaigns"],
-            ["templates", "Automatic emails"],
-            ["suppressions", "Unsubscribes"],
-          ] as const
-        ).map(([k, label]) => (
-          <Button key={k} size="sm" variant={view === k ? "secondary" : "ghost"} onClick={() => setView(k)}>
-            {label}
-          </Button>
-        ))}
+      <div className="border-b border-border px-5 py-3">
+        <Segmented
+          label="Email section"
+          value={view}
+          onChange={setView}
+          items={[
+            { value: "campaigns", label: "Campaigns", count: campaigns?.length },
+            { value: "templates", label: "Automatic emails" },
+            { value: "suppressions", label: "Unsubscribes" },
+          ]}
+        />
       </div>
 
       {view === "templates" && <TransactionalPreview />}
       {view === "suppressions" && <Suppressions />}
       {view === "campaigns" && (
-        <div className="grid lg:grid-cols-[260px_1fr]">
-          <aside className="border-b border-border p-3 lg:border-b-0 lg:border-r">
-            <Button className="w-full" size="sm" onClick={() => setSelected("new")}>
-              <Plus className="h-4 w-4" /> New campaign
+        <div className="grid lg:grid-cols-[272px_1fr]">
+          <aside className="border-b border-border bg-surface/40 p-3 lg:border-b-0 lg:border-r">
+            <Button className="w-full" size="sm" variant={active === "new" ? "secondary" : "outline"} onClick={() => setSelected("new")}>
+              <PlusIcon /> New campaign
             </Button>
             <ul className="mt-3 space-y-1">
               {campaigns === undefined && (
-                <li className="px-2 py-4 text-sm text-muted-foreground">Loading…</li>
+                <li className="space-y-2 px-1 py-2">
+                  <div className="h-12 animate-sheen rounded-lg bg-muted" />
+                  <div className="h-12 animate-sheen rounded-lg bg-muted" />
+                </li>
+              )}
+              {campaigns?.length === 0 && (
+                <li className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+                  <InboxStackIcon className="size-4" /> No campaigns yet.
+                </li>
               )}
               {campaigns?.map((c) => (
                 <li key={c._id}>
                   <button
                     type="button"
                     onClick={() => setSelected(c._id)}
+                    aria-current={active === c._id ? "true" : undefined}
                     className={cn(
-                      "w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-muted",
-                      active === c._id && "bg-muted",
+                      "w-full rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      active === c._id && "bg-card shadow-panel ring-1 ring-border",
                     )}
                   >
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-foreground">{c.name}</span>
+                      <span className="truncate text-sm font-medium text-foreground">{c.name}</span>
                       {statusBadge(c.status)}
                     </span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                    <span className="mt-1 block text-xs text-muted-foreground">
                       {c.status === "draft"
                         ? `Edited ${fmt(c.updatedAt)}`
-                        : `${c.stats.queued} sent · ${c.stats.opened} opened`}
+                        : `${c.stats.queued.toLocaleString()} sent · ${c.stats.opened.toLocaleString()} opened`}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
           </aside>
-          <section className="min-w-0 p-5">
+          <section className="min-w-0 p-5 lg:p-6">
             {campaigns === undefined ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>
+              <SkeletonRows rows={4} />
             ) : activeCampaign && activeCampaign.status !== "draft" ? (
               <CampaignReport campaign={activeCampaign} />
             ) : (
@@ -706,6 +735,6 @@ export function EmailTab({ adminEmail }: { adminEmail: string }) {
           </section>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -183,6 +183,15 @@
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
   --font-display: var(--font-display);
+  --font-heading: var(--font-jakarta);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-ink: var(--brand-ink);
+  --color-warn: var(--warn);
+  --color-surface: var(--surface);
+  --color-viz-views: var(--viz-views);
+  --color-viz-sessions: var(--viz-sessions);
+  --color-viz-signups: var(--viz-signups);
   --radius: 0.5rem;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -386,4 +395,122 @@
     animation: voicebar 1.2s ease-in-out infinite;
     transform-origin: bottom;
   }
+}
+
+/*
+ * The admin console. Its tokens sit on <body> whenever the admin root is on
+ * the page, so Radix portals and toasts (which mount on body, outside the
+ * root) wear them too, and the public pages never see them. Ink and surfaces
+ * are neutral; lime is the brand and is spent on one thing per screen.
+ * Chart series were run through the dataviz validator (blue/orange pass every
+ * check in both modes; signups is a single series, lime on dark and lime-700
+ * on light for contrast).
+ */
+body:has(.admin-root) {
+  --background: oklch(0.975 0.002 106);
+  --surface: oklch(0.955 0.003 106);
+  --foreground: oklch(0.17 0.005 286);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.005 286);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.005 286);
+  --primary: oklch(0.17 0.005 286);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0.003 106);
+  --secondary-foreground: oklch(0.17 0.005 286);
+  --muted: oklch(0.955 0.003 106);
+  --muted-foreground: oklch(0.5 0.01 286);
+  --accent: oklch(0.945 0.004 106);
+  --accent-foreground: oklch(0.17 0.005 286);
+  --destructive: oklch(0.56 0.19 25);
+  --border: oklch(0.17 0.005 286 / 9%);
+  --input: oklch(0.17 0.005 286 / 14%);
+  --ring: oklch(0.6 0.16 128);
+  --brand: #c1ee4d;
+  --brand-foreground: #0a0a0b;
+  --brand-ink: #4d7c0f;
+  --warn: oklch(0.62 0.15 70);
+  --viz-views: #2a78d6;
+  --viz-sessions: #eb6834;
+  --viz-signups: #4d7c0f;
+  --radius: 0.625rem;
+  --shadow-panel: 0 1px 2px oklch(0 0 0 / 4%), 0 8px 24px -12px oklch(0 0 0 / 10%);
+  --shadow-float: 0 12px 32px -8px oklch(0 0 0 / 18%), 0 2px 6px oklch(0 0 0 / 6%);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01";
+}
+
+.dark body:has(.admin-root) {
+  --background: oklch(0.145 0.003 286);
+  --surface: oklch(0.165 0.004 286);
+  --foreground: oklch(0.95 0.003 286);
+  --card: oklch(0.182 0.004 286);
+  --card-foreground: oklch(0.95 0.003 286);
+  --popover: oklch(0.205 0.005 286);
+  --popover-foreground: oklch(0.95 0.003 286);
+  --primary: oklch(0.95 0.003 286);
+  --primary-foreground: oklch(0.16 0.004 286);
+  --secondary: oklch(0.235 0.005 286);
+  --secondary-foreground: oklch(0.95 0.003 286);
+  --muted: oklch(0.215 0.005 286);
+  --muted-foreground: oklch(0.68 0.01 286);
+  --accent: oklch(0.235 0.005 286);
+  --accent-foreground: oklch(0.95 0.003 286);
+  --destructive: oklch(0.66 0.19 25);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.89 0.19 124 / 60%);
+  --brand-ink: #c1ee4d;
+  --warn: oklch(0.82 0.15 80);
+  --viz-views: #3987e5;
+  --viz-sessions: #d95926;
+  --viz-signups: #c1ee4d;
+  --shadow-panel: inset 0 1px 0 oklch(1 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 40%);
+  --shadow-float: inset 0 1px 0 oklch(1 0 0 / 6%), 0 16px 40px -8px oklch(0 0 0 / 60%);
+}
+
+@layer utilities {
+  .shadow-panel {
+    box-shadow: var(--shadow-panel);
+  }
+  .shadow-float {
+    box-shadow: var(--shadow-float);
+  }
+  .ease-out-quint {
+    transition-timing-function: var(--ease-out);
+  }
+
+  /* Loading placeholders: a slow sheen across the block, still when the
+     reader asked for less motion. */
+  @keyframes sheen {
+    from { background-position: 150% 0; }
+    to { background-position: -50% 0; }
+  }
+  .animate-sheen {
+    background-image: linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 6%) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: sheen 1.6s var(--ease-out) infinite;
+  }
+
+  /* A view arrives: a short rise, once. Live data never re-triggers it. */
+  @keyframes view-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .animate-view-in {
+    animation: view-in 320ms var(--ease-out) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-sheen,
+    .animate-view-in {
+      animation: none;
+    }
+  }
+}
+
+/* Press feedback for every console button: a 2% give, nothing on disabled. */
+.admin-root [data-slot="button"]:active:not(:disabled) {
+  transform: scale(0.98);
 }

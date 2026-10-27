@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { useState } from "react";
+import { useAction, useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { flexRender, type ColumnDef } from "@tanstack/react-table";
 import {
-  CheckCircle2,
-  CloudUpload,
-  Download,
-  Inbox,
-  Loader2,
-  Search,
-  ShieldCheck,
-  Undo2,
-  X,
-} from "lucide-react";
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowUturnLeftIcon,
+  CheckBadgeIcon,
+  CheckCircleIcon,
+  CloudArrowUpIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/16/solid";
+import { InboxIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
 import type { FunctionReturnType } from "convex/server";
 
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,13 +31,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/admin/data-table-pagination";
-import { usePaginatedAdminTable } from "@/components/admin/use-paginated-admin-table";
+import { Avatar, EmptyState, Panel, Segmented, SkeletonRows, StatusPill, fmtDateTime } from "@/components/admin/kit";
+import { useLiveTable } from "@/components/admin/use-live-table";
 import { useAdminTable } from "@/lib/admin-table-store";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 type WaitlistStatus = "pending" | "invited" | "registered";
-type WaitlistId = Id<"waitlist">;
 
 const STATUS_LABEL: Record<WaitlistStatus, string> = {
   pending: "Pending",
@@ -46,55 +45,84 @@ const STATUS_LABEL: Record<WaitlistStatus, string> = {
   registered: "Registered",
 };
 
-function fmt(ts: number): string {
-  return new Date(ts).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
 
-function StatusBadge({
-  status,
-  synced,
-}: {
-  status: WaitlistStatus;
-  synced: boolean;
-}) {
+function StatusBadge({ status, synced }: { status: WaitlistStatus; synced: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <Badge
-        variant="secondary"
-        className={cn(
-          status === "invited" && "bg-fern/15 text-fern",
-          status === "registered" && "bg-primary/15 text-primary",
-        )}
-      >
-        {STATUS_LABEL[status]}
-      </Badge>
-      {synced && (
-        <CheckCircle2
-          className="h-3.5 w-3.5 text-fern"
-          aria-label="Synced to backend"
-        />
-      )}
+      <StatusPill tone={status === "invited" ? "brand" : status === "registered" ? "info" : "neutral"}>{STATUS_LABEL[status]}</StatusPill>
+      {synced && <CheckBadgeIcon className="size-4 text-brand-ink" aria-label="Synced to backend" />}
     </span>
   );
 }
 
+type WaitlistRow = FunctionReturnType<typeof api.waitlist.listForAdmin>["page"][number];
+
+const matchesSignup = (r: WaitlistRow, needle: string) =>
+  (r.name ?? "").toLowerCase().includes(needle) || r.email.toLowerCase().includes(needle);
+
+const COLUMNS: ColumnDef<WaitlistRow>[] = [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        aria-label="Select all rows in view"
+        checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? "indeterminate" : false}
+        onCheckedChange={(c) => table.toggleAllPageRowsSelected(c === true)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={`Select ${row.original.name ?? row.original.email}`}
+        checked={row.getIsSelected()}
+        onCheckedChange={(c) => row.toggleSelected(c === true)}
+      />
+    ),
+    meta: { className: "w-10" },
+  },
+  {
+    id: "name",
+    header: "Name",
+    cell: ({ row: { original: r } }) => (
+      <div className="flex items-center gap-3">
+        <Avatar name={r.name} email={r.email} />
+        <div className="min-w-0">
+          <p className="truncate font-medium text-foreground">{r.name ?? "—"}</p>
+          <p className="truncate text-xs text-muted-foreground">{r.email}</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "phone",
+    header: "Phone",
+    cell: ({ row: { original: r } }) => <span className="text-muted-foreground">{r.phone ?? "—"}</span>,
+  },
+  {
+    id: "status",
+    header: "Status",
+    cell: ({ row: { original: r } }) => <StatusBadge status={r.status} synced={r.syncedAt !== undefined} />,
+  },
+  {
+    id: "joined",
+    header: () => <span className="block text-right">Joined</span>,
+    cell: ({ row: { original: r } }) => (
+      <span className="block whitespace-nowrap text-right text-sm text-muted-foreground">{fmtDateTime(r.createdAt)}</span>
+    ),
+  },
+];
+
 export function WaitlistTab() {
-  const { statusFilter, setStatusFilter } = useAdminTable("waitlist");
-  const t = usePaginatedAdminTable(
+  const { statusFilter, setStatusFilter, setPageIndex } = useAdminTable("waitlist");
+  const filter = statusFilter as WaitlistStatus | undefined;
+  const { results, status, loadMore } = usePaginatedQuery(
     api.waitlist.listForAdmin,
-    "waitlist",
-    statusFilter ? { status: statusFilter as WaitlistStatus } : {},
+    filter ? { status: filter } : {},
+    { initialNumItems: 25 },
   );
   const counts = useQuery(api.waitlist.countByStatus);
   const setStatus = useMutation(api.waitlist.setStatus);
@@ -102,52 +130,27 @@ export function WaitlistTab() {
   const syncToBackend = useAction(api.sync.syncToBackend);
   const convex = useConvex();
 
-  const [selected, setSelected] = useState<Set<WaitlistId>>(new Set());
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
-  const [syncSummary, setSyncSummary] = useState<string | null>(null);
+  const [syncSummary, setSyncSummary] = useState<{ text: string; ok: boolean } | null>(null);
 
-  // While searching, keep loading the cursor so the search sees every row.
-  const searching = search.trim().length > 0;
-  useEffect(() => {
-    if (searching && t.status === "CanLoadMore") t.loadMore(200);
-  }, [searching, t]);
-
-  const searchRows = useMemo(() => {
-    if (!searching) return null;
-    const needle = search.trim().toLowerCase();
-    return t.loadedRows.filter(
-      (r) =>
-        (r.name ?? "").toLowerCase().includes(needle) ||
-        r.email.toLowerCase().includes(needle),
-    );
-  }, [searching, search, t.loadedRows]);
-
-  const rows = searchRows ?? t.pageRows;
-  const allOnViewSelected =
-    rows.length > 0 && rows.every((r) => selected.has(r._id));
-
-  const toggleAll = () => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allOnViewSelected) rows.forEach((r) => next.delete(r._id));
-      else rows.forEach((r) => next.add(r._id));
-      return next;
-    });
-  };
-
-  const toggleOne = (id: WaitlistId) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const t = useLiveTable({
+    tableKey: "waitlist",
+    data: results,
+    status,
+    loadMore,
+    columns: COLUMNS,
+    total: counts ? (filter ? counts[filter] : counts.total) : undefined,
+    search,
+    matches: matchesSignup,
+  });
+  const searching = t.searching;
+  const rows = t.rows;
+  const selected = t.selectedRows;
 
   const bulkSetStatus = async (status: WaitlistStatus) => {
-    const ids = [...selected];
+    const ids = selected.map((r) => r._id);
     setBusy(status === "invited" ? "whitelist" : "pending");
     try {
       let updated = 0;
@@ -160,7 +163,7 @@ export function WaitlistTab() {
           ? `Whitelisted ${updated} signup${updated === 1 ? "" : "s"}.`
           : `Moved ${updated} back to pending.`,
       );
-      setSelected(new Set());
+      t.clearSelection();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Bulk update failed.");
     } finally {
@@ -266,7 +269,7 @@ export function WaitlistTab() {
         res.attempted === 0
           ? "Nothing to sync — every whitelisted signup is already pushed."
           : `Synced ${res.synced} of ${res.attempted}${res.failed ? `, ${res.failed} failed` : ""}.`;
-      setSyncSummary(summary);
+      setSyncSummary({ text: summary, ok: res.failed === 0 });
       if (res.failed > 0) {
         toast.error(`${summary} ${res.errors[0] ?? ""}`);
       } else {
@@ -274,18 +277,12 @@ export function WaitlistTab() {
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Sync failed.";
-      setSyncSummary(message);
+      setSyncSummary({ text: message, ok: false });
       toast.error(message);
     } finally {
       setBusy(null);
     }
   };
-
-  if (t.isFirstLoad) {
-    return (
-      <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>
-    );
-  }
 
   const chips: { label: string; value?: WaitlistStatus; count?: number }[] = [
     { label: "All", value: undefined, count: counts?.total },
@@ -295,211 +292,156 @@ export function WaitlistTab() {
   ];
 
   return (
-    <div className="space-y-3">
-      {/* Toolbar: filter chips, search, export, sync */}
-      <div className="flex flex-wrap items-center gap-2 px-2 pt-2">
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by status">
-          {chips.map((c) => (
-            <Button
-              key={c.label}
-              size="sm"
-              variant={statusFilter === c.value || (!statusFilter && !c.value) ? "secondary" : "ghost"}
-              onClick={() => setStatusFilter(c.value)}
-              aria-pressed={statusFilter === c.value || (!statusFilter && !c.value)}
-            >
-              {c.label}
-              {c.count !== undefined && (
-                <span className="ml-1 text-xs text-muted-foreground">{c.count}</span>
-              )}
+    <div className="space-y-4">
+      {/* Bulk-whitelist the backlog: the one action this list exists for. */}
+      {counts !== undefined && counts.pending > 0 && selected.length === 0 && (
+        <Panel className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand-ink">
+            <ShieldCheckIcon className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-heading text-[15px] font-semibold text-foreground">
+              {counts.pending.toLocaleString()} signup{counts.pending === 1 ? "" : "s"} not yet whitelisted
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {confirmAll
+                ? `Whitelist all ${counts.pending.toLocaleString()} pending signups? Nothing is emailed.`
+                : "Whitelisting marks them ready for the backend. Sync pushes them there."}
+            </p>
+          </div>
+          {confirmAll ? (
+            <div className="flex shrink-0 gap-2">
+              <Button variant="ghost" onClick={() => setConfirmAll(false)} disabled={busy !== null}>
+                Cancel
+              </Button>
+              <Button variant="brand" onClick={whitelistAll} disabled={busy !== null}>
+                {busy === "all" ? <ArrowPathIcon className="animate-spin" /> : <ShieldCheckIcon />}
+                Confirm
+              </Button>
+            </div>
+          ) : (
+            <Button variant="brand" className="shrink-0" onClick={() => setConfirmAll(true)} disabled={busy !== null}>
+              <ShieldCheckIcon />
+              Whitelist all pending
             </Button>
-          ))}
-        </div>
-        <div className="relative ml-auto w-full sm:w-56">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name or email…"
-            aria-label="Search waitlist by name or email"
-            className="pl-8"
-          />
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={exportCsv}
-          disabled={busy !== null}
-        >
-          {busy === "export" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
           )}
-          CSV
-        </Button>
-        <Button size="sm" variant="outline" onClick={runSync} disabled={busy !== null}>
-          {busy === "sync" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CloudUpload className="h-4 w-4" />
-          )}
-          Sync to backend
-        </Button>
-      </div>
-
-      {syncSummary && (
-        <p role="status" className="px-2 text-xs text-muted-foreground">
-          {syncSummary}
-        </p>
+        </Panel>
       )}
 
-      {/* Bulk bar */}
-      <div className="flex flex-wrap items-center gap-2 px-2">
-        {selected.size > 0 ? (
-          <>
-            <span className="text-sm text-muted-foreground">
-              {selected.size} selected
-            </span>
-            <Button
-              size="sm"
-              onClick={() => bulkSetStatus("invited")}
-              disabled={busy !== null}
-            >
-              {busy === "whitelist" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" />
-              )}
-              Whitelist selected
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => bulkSetStatus("pending")}
-              disabled={busy !== null}
-            >
-              <Undo2 className="h-4 w-4" />
-              Mark pending
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelected(new Set())}
-              disabled={busy !== null}
-            >
-              <X className="h-4 w-4" />
-              Clear
-            </Button>
-          </>
-        ) : confirmAll ? (
-          <>
-            <span className="text-sm text-muted-foreground">
-              Whitelist all {counts?.pending ?? ""} pending signups?
-            </span>
-            <Button size="sm" onClick={whitelistAll} disabled={busy !== null}>
-              Confirm
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirmAll(false)}
-              disabled={busy !== null}
-            >
-              Cancel
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmAll(true)}
-            disabled={busy !== null || (counts !== undefined && counts.pending === 0)}
-          >
-            {busy === "all" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
-            )}
-            Whitelist all pending
+      <Panel className="overflow-hidden">
+        {/* Toolbar: filter, search, export, sync */}
+        <div className="flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-5">
+          <Segmented
+            label="Filter by status"
+            value={statusFilter as WaitlistStatus | undefined}
+            onChange={(v) => {
+              setStatusFilter(v);
+              t.clearSelection();
+            }}
+            items={chips.map((c) => ({ value: c.value, label: c.label, count: c.count }))}
+          />
+          <div className="relative ml-auto w-full sm:w-60">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              type="search"
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPageIndex(0);
+              }}
+              placeholder="Search name or email"
+              aria-label="Search waitlist by name or email"
+              className="pl-9"
+            />
+          </div>
+          <Button size="sm" variant="outline" onClick={exportCsv} disabled={busy !== null}>
+            {busy === "export" ? <ArrowPathIcon className="animate-spin" /> : <ArrowDownTrayIcon />}
+            CSV
           </Button>
-        )}
-      </div>
-
-      {t.isEmpty && !searching ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
-          <Inbox className="h-8 w-8 opacity-50" />
-          <p className="text-sm">
-            {statusFilter ? "Nothing with this status yet." : "No signups yet."}
-          </p>
+          <Button size="sm" variant="outline" onClick={runSync} disabled={busy !== null}>
+            {busy === "sync" ? <ArrowPathIcon className="animate-spin" /> : <CloudArrowUpIcon />}
+            Sync to backend
+          </Button>
         </div>
-      ) : (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allOnViewSelected}
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all rows in view"
-                  />
-                </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow
-                  key={r._id}
-                  data-state={selected.has(r._id) ? "selected" : undefined}
-                >
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(r._id)}
-                      onCheckedChange={() => toggleOne(r._id)}
-                      aria-label={`Select ${r.name ?? r.email}`}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{r.name ?? "—"}</TableCell>
-                  <TableCell>{r.email}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {r.phone ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge
-                      status={r.status}
-                      synced={r.syncedAt !== undefined}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {fmt(r.createdAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {searching ? (
-            <p className="px-2 pb-2 text-xs text-muted-foreground" role="status">
-              {t.status === "Exhausted"
-                ? `${rows.length} match${rows.length === 1 ? "" : "es"}.`
-                : "Searching…"}
-            </p>
+
+        {syncSummary && (
+          <p role="status" className={cn("mx-4 mt-3 flex items-center gap-2 text-xs sm:mx-5", syncSummary.ok ? "text-brand-ink" : "text-destructive")}>
+            {syncSummary.ok && <CheckCircleIcon className="size-4" />}
+            {syncSummary.text}
+          </p>
+        )}
+
+        {/* Selection bar */}
+        {selected.length > 0 && (
+          <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-brand/10 px-3.5 py-2.5 ring-1 ring-inset ring-brand/25 animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none sm:mx-5">
+            <span className="text-sm font-medium text-foreground">{selected.length} selected</span>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={t.clearSelection} disabled={busy !== null}>
+                Clear
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => bulkSetStatus("pending")} disabled={busy !== null}>
+                {busy === "pending" ? <ArrowPathIcon className="animate-spin" /> : <ArrowUturnLeftIcon />}
+                Mark pending
+              </Button>
+              <Button size="sm" variant="brand" onClick={() => bulkSetStatus("invited")} disabled={busy !== null}>
+                {busy === "whitelist" ? <ArrowPathIcon className="animate-spin" /> : <ShieldCheckIcon />}
+                Whitelist selected
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 border-t border-border">
+          {t.isFirstLoad ? (
+            <SkeletonRows />
+          ) : t.isEmpty && !searching ? (
+            <EmptyState
+              icon={InboxIcon}
+              title={statusFilter ? "Nothing with this status" : "No signups yet"}
+              body={statusFilter ? "Pick another filter, or wait for the next signup." : "Signups from the old form appear here."}
+            />
+          ) : searching && t.exhausted && rows.length === 0 ? (
+            <EmptyState icon={MagnifyingGlassIcon} title="No matches" body={`Nobody's name or email contains “${search.trim()}”.`} />
           ) : (
             <>
-              {t.isPageLoading && (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  Loading…
-                </div>
+              <Table className="[&_td]:px-3 [&_td]:py-3 [&_th]:h-10 [&_th]:px-3 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground [&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5">
+                <TableHeader className="bg-surface/60">
+                  {t.table.getHeaderGroups().map((hg) => (
+                    <TableRow key={hg.id} className="hover:bg-transparent">
+                      {hg.headers.map((h) => (
+                        <TableHead key={h.id} className={(h.column.columnDef.meta as { className?: string } | undefined)?.className}>
+                          {flexRender(h.column.columnDef.header, h.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {t.table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() ? "selected" : undefined}
+                      className="transition-colors hover:bg-accent/40 data-[state=selected]:bg-brand/[0.06]"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {t.isPageLoading && <SkeletonRows rows={3} />}
+              {searching && !t.exhausted ? (
+                <p className="flex items-center gap-2 border-t border-border px-5 py-3 text-xs text-muted-foreground" role="status">
+                  <ArrowPathIcon className="size-3.5 animate-spin" /> Searching every signup…
+                </p>
+              ) : (
+                <DataTablePagination table={t.table} />
               )}
-              <DataTablePagination {...t} />
             </>
           )}
-        </>
-      )}
+        </div>
+      </Panel>
     </div>
   );
 }
