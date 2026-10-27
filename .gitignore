@@ -47,3 +47,6 @@ public/carousel/*.png
 # playwright
 /test-results/
 /playwright-report/
+
+# Admin logins and passwords (see admin.md). Never commit.
+admin.md

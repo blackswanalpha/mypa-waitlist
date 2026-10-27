@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Check, ArrowRight } from "lucide-react";
+import { Loader2, Check, ArrowRight, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { getAttribution } from "@/lib/attribution";
 
@@ -19,6 +19,9 @@ const schema = z.object({
     .min(1, { message: "Add your email to join." })
     .email({ message: "That email doesn’t look right." })
     .max(254, { message: "That email is too long." }),
+  device: z.enum(["samsung", "android", "iphone"], {
+    errorMap: () => ({ message: "Pick your phone so we send the right install steps." }),
+  }),
   agreed: z.boolean().refine((v) => v, {
     message: "Tick the box so we can email your invite.",
   }),
@@ -26,15 +29,31 @@ const schema = z.object({
   website: z.string().optional(),
 });
 type Values = z.infer<typeof schema>;
+type Device = Values["device"];
+
+const DEVICES: { value: Device; label: string }[] = [
+  { value: "samsung", label: "Samsung" },
+  { value: "android", label: "Other Android" },
+  { value: "iphone", label: "iPhone" },
+];
+
+type Result = { duplicate: boolean; position: number; slots: number; status: string };
 
 /**
- * The waitlist: the email field with its button beside it (stacked on phones),
- * consent on the line beneath. Signups go to /api/waitlist, which forwards
- * them to the product backend. `onMood` tells the bot above what the form is
- * doing, so it listens while you type and thinks while it submits.
+ * The tester-list form: which phone, then the email field with its button
+ * beside it (stacked on phones), consent on the line beneath. Signups go to
+ * /api/waitlist, which writes the tester row in Convex. `onMood` tells the bot
+ * above what the form is doing, so it listens while you type and thinks while
+ * it submits. `onClosed` fires when the server says signups have just closed.
  */
-export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
-  const [done, setDone] = useState(false);
+export function WaitlistForm({
+  onMood,
+  onClosed,
+}: {
+  onMood?: (mood: BotMood) => void;
+  onClosed?: () => void;
+}) {
+  const [done, setDone] = useState<(Result & { email: string; device: Device }) | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   // After a rejected submit the bot holds its reaction until you type again;
   // the form refocusing the field must not read as "listening".
@@ -42,7 +61,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", agreed: true, website: "" },
+    defaultValues: { email: "", device: undefined, agreed: true, website: "" },
   });
 
   const onSubmit = async (data: Values) => {
@@ -54,25 +73,38 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: data.email,
+          device: data.device,
           source: "landing",
           agreed: data.agreed,
           website: data.website || undefined,
           ...getAttribution(),
         }),
       });
-      const body = (await res.json().catch(() => ({}))) as {
-        duplicate?: boolean;
+      const body = (await res.json().catch(() => ({}))) as Partial<Result> & {
         error?: string;
+        code?: string;
       };
+      if (res.status === 409 && body.code === "closed") {
+        toast.info(body.error ?? "Tester signups just closed.");
+        onClosed?.();
+        return;
+      }
       if (!res.ok) {
         throw new Error(body.error ?? "Something went wrong. Please try again.");
       }
       if (body.duplicate) {
-        toast.info("You're already on the list — we'll be in touch.");
+        toast.info("You're already on the list.");
       } else {
-        toast.success("You're on the waitlist!");
+        toast.success("You're on the list!");
       }
-      setDone(true);
+      setDone({
+        duplicate: !!body.duplicate,
+        position: body.position ?? 0,
+        slots: body.slots ?? 0,
+        status: body.status ?? "pending",
+        email: data.email.trim().toLowerCase(),
+        device: data.device,
+      });
       onMood?.("done");
     } catch (e) {
       const message =
@@ -84,28 +116,13 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
     }
   };
 
-  if (done) {
-    return (
-      <div className="animate-rise rounded-[1.75rem] border border-border p-5 text-left sm:p-6" role="status">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fern text-white">
-            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-          </span>
-          <p className="text-[13px] font-medium text-fern">Your place is saved</p>
-        </div>
-        <h2 className="mt-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-foreground">
-          You&rsquo;re on the list.
-        </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          Your invite follows the moment MyPA is ready.
-        </p>
-      </div>
-    );
-  }
+  if (done) return <Saved {...done} />;
 
   const errors = form.formState.errors;
   const submitting = form.formState.isSubmitting;
-  const message = errors.email?.message ?? errors.agreed?.message ?? serverError;
+  const message =
+    errors.device?.message ?? errors.email?.message ?? errors.agreed?.message ?? serverError;
+  const device = form.watch("device");
   const email = form.register("email");
 
   return (
@@ -117,6 +134,55 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
       noValidate
       aria-label="Join the MyPA waitlist"
     >
+      <fieldset className="mb-3">
+        <legend className="mb-2 flex w-full items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+          <Smartphone className="h-3.5 w-3.5" aria-hidden />
+          Which phone will you test on?
+        </legend>
+        <div
+          role="radiogroup"
+          aria-label="Your phone"
+          aria-invalid={!!errors.device}
+          aria-describedby={errors.device ? "waitlist-message" : undefined}
+          className="grid grid-cols-3 gap-2"
+        >
+          {DEVICES.map((d) => {
+            const on = device === d.value;
+            return (
+              <button
+                key={d.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                data-device={d.value}
+                onClick={() => {
+                  form.setValue("device", d.value, { shouldValidate: form.formState.isSubmitted });
+                  holding.current = false;
+                  onMood?.("listen");
+                }}
+                className={cn(
+                  "inline-flex h-12 items-center justify-center gap-1.5 rounded-[6px] border px-2 text-[13px] transition-[border-color,background-color,color] duration-150 ease-out",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
+                  on
+                    ? "border-black bg-black/[0.04] font-medium text-foreground"
+                    : errors.device
+                      ? "border-destructive/60 text-foreground hover:border-foreground/40"
+                      : "border-input text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                )}
+              >
+                {on && <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />}
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+        {device === "iphone" && (
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            The test build is Android-only for now. Join anyway and you keep your place for iOS.
+          </p>
+        )}
+      </fieldset>
+
       <div className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor="email" className="sr-only">Email address</label>
         <input
@@ -149,9 +215,9 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
           type="submit"
           disabled={submitting}
           className={cn(
-            "group inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-foreground px-6 text-sm font-medium text-background",
-            "transition-[background-color,transform] duration-200 ease-out hover:bg-foreground/85 active:scale-[0.97]",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:cursor-progress",
+            "group inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-black px-6 text-sm font-medium text-white",
+            "transition-transform duration-200 ease-out active:scale-[0.97]",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black disabled:cursor-progress",
           )}
         >
           <span>{submitting ? "Joining" : "Join the waitlist"}</span>
@@ -182,7 +248,7 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
             aria-describedby={errors.agreed ? "waitlist-message" : undefined}
             onCheckedChange={(c) => form.setValue("agreed", c === true, { shouldValidate: form.formState.isSubmitted })}
           />
-          Email me about early access.
+          Email me my tester invite and launch updates.
         </label>
       </div>
 
@@ -198,5 +264,52 @@ export function WaitlistForm({ onMood }: { onMood?: (mood: BotMood) => void }) {
         {message}
       </p>
     </form>
+  );
+}
+
+/** The card that replaces the form once the signup is saved. */
+function Saved({
+  duplicate,
+  position,
+  slots,
+  status,
+  email,
+  device,
+}: Result & { email: string; device: Device }) {
+  const tester = position > 0 && position <= slots;
+  let badge: string;
+  let title: string;
+  let body: string;
+  if (duplicate && status === "approved") {
+    badge = "Already approved";
+    title = "You’re already a tester.";
+    body = `Your invite and install guide went to ${email}. Check spam if you can’t find it.`;
+  } else if (device === "iphone") {
+    badge = position ? `Place #${position} saved` : "Your place is saved";
+    title = "You’re on the list.";
+    body = `The test build is Android-only for now. We’ll email ${email} when iOS is ready.`;
+  } else if (tester) {
+    badge = `Spot #${position} of ${slots}`;
+    title = duplicate ? "You’re already on the tester list." : "You’re on the tester list.";
+    body = `We approve testers by hand. Watch ${email} for your invite and a picture-by-picture install guide.`;
+  } else {
+    badge = position ? `Place #${position} saved` : "Your place is saved";
+    title = "You’re on the waitlist.";
+    body = `All ${slots || "the"} tester spots are claimed. We’ll email ${email} when the next round opens.`;
+  }
+
+  return (
+    <div className="animate-rise rounded-[6px] border border-border p-5 text-left sm:p-6" role="status">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fern text-white">
+          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+        </span>
+        <p className="text-[13px] font-medium text-fern">{badge}</p>
+      </div>
+      <h2 className="mt-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-foreground">
+        {title}
+      </h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+    </div>
   );
 }
