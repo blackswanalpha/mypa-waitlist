@@ -1,10 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { SLIDES } from "../lib/carousel";
 
-// Landing-page scenarios. The submission scenarios write real rows through
-// /api/waitlist to the product backend in the server's BACKEND_URL (each a
-// users row with status "waitlist"), with Resend test addresses
-// (delivered+<label>@resend.dev).
+// Landing-page scenarios. The submission scenarios write real tester rows
+// through /api/waitlist to the server's Convex deployment, with Resend test
+// addresses (delivered+<label>@resend.dev). Signups must be open; testers.spec
+// closes and reopens them, so it runs after this file (playwright.config.ts).
 
 const VIEWPORTS: [number, number][] = [
   [320, 640],
@@ -34,6 +34,11 @@ const STATUS = "header p";
 async function home(page: Page) {
   await page.goto("/");
   await page.locator(`${BOT} svg`).first().waitFor();
+}
+
+/** The phone question comes first; most scenarios just pick one. */
+async function pickPhone(page: Page, label = "Other Android") {
+  await page.getByRole("radio", { name: label }).click();
 }
 
 function uniqueEmail(tag: string) {
@@ -263,8 +268,24 @@ test.describe("not found", () => {
 // ---------------------------------------------------------------- B. Validation (no writes)
 
 test.describe("validation", () => {
+  test("no phone picked asks for the phone first", async ({ page }) => {
+    await home(page);
+    await page.fill("#email", uniqueEmail("nophone"));
+    await page.locator(`${FORM} button[type=submit]`).click();
+    await expect(page.locator("#waitlist-message")).toHaveText("Pick your phone so we send the right install steps.");
+    await expect(page.getByRole("radiogroup", { name: "Your phone" })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("picking iPhone says the build is Android-only", async ({ page }) => {
+    await home(page);
+    await pickPhone(page, "iPhone");
+    await expect(page.getByText("The test build is Android-only for now.")).toBeVisible();
+    await expect(page.getByRole("radio", { name: "iPhone" })).toHaveAttribute("aria-checked", "true");
+  });
+
   test("empty submit asks for an email and the bot is unsure", async ({ page }) => {
     await home(page);
+    await pickPhone(page);
     await page.locator(`${FORM} button[type=submit]`).click();
     await expect(page.locator("#waitlist-message")).toHaveText("Add your email to join.");
     await expect(page.locator(BOT)).toHaveAttribute("data-mood", "unsure");
@@ -286,6 +307,7 @@ test.describe("validation", () => {
   for (const bad of INVALID) {
     test(`rejects "${bad}" client-side`, async ({ page }) => {
       await home(page);
+      await pickPhone(page);
       await page.fill("#email", bad);
       await page.locator(`${FORM} button[type=submit]`).click();
       await expect(page.locator("#waitlist-message")).toHaveText("That email doesn’t look right.");
@@ -313,6 +335,7 @@ test.describe("validation", () => {
 
   test("a valid email without consent is held back", async ({ page }) => {
     await home(page);
+    await pickPhone(page);
     await page.locator('label[for="agreed"]').click();
     await page.fill("#email", uniqueEmail("noconsent"));
     await page.locator(`${FORM} button[type=submit]`).click();
@@ -337,24 +360,26 @@ test.describe("validation", () => {
 
   test("Enter in the bar submits", async ({ page }) => {
     await home(page);
+    await pickPhone(page);
     await page.fill("#email", "nope");
     await page.locator("#email").press("Enter");
     await expect(page.locator("#waitlist-message")).toHaveText("That email doesn’t look right.");
   });
 });
 
-// ---------------------------------------------------------------- C. Submissions (writes to the backend)
+// ---------------------------------------------------------------- C. Submissions (writes tester rows to Convex)
 
 test.describe("submission", () => {
   for (const [w, h] of VIEWPORTS) {
     test(`valid email joins the list at ${w}x${h}`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await home(page);
+      await pickPhone(page, w % 2 ? "Samsung" : "Other Android");
       await page.fill("#email", uniqueEmail(`v${w}`));
       await page.locator(`${FORM} button[type=submit]`).click();
       const done = page.locator('[role="status"]');
-      await expect(done).toContainText("on the list", { timeout: 15_000 });
-      await expect(done).toContainText("Your place is saved");
+      await expect(done).toContainText(/on the (tester list|waitlist)/, { timeout: 15_000 });
+      await expect(done).toContainText(/Spot #\d+ of \d+|Place #\d+ saved/);
       await expect(page.locator(BOT)).toHaveAttribute("data-mood", "done");
       expect(await bleeding(page)).toEqual([]);
     });
@@ -363,9 +388,10 @@ test.describe("submission", () => {
   test("an email with capitals and spaces is normalised and accepted", async ({ page }) => {
     await home(page);
     const email = uniqueEmail("norm").toUpperCase();
+    await pickPhone(page);
     await page.fill("#email", `  ${email}  `);
     await page.locator(`${FORM} button[type=submit]`).click();
-    await expect(page.locator('[role="status"]')).toContainText("on the list", { timeout: 15_000 });
+    await expect(page.locator('[role="status"]')).toContainText(email.toLowerCase(), { timeout: 15_000 });
     // A first visit has no stored theme; the toast must still be light on the white page.
     await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-sonner-theme", "light");
     const [r, g, b] = await rgbOf(page, "[data-sonner-toast]", "backgroundColor");
@@ -376,10 +402,11 @@ test.describe("submission", () => {
     const email = uniqueEmail("dup");
     for (const pass of [1, 2]) {
       await home(page);
+      await pickPhone(page);
       await page.fill("#email", email);
       await page.locator(`${FORM} button[type=submit]`).click();
-      await expect(page.locator('[role="status"]')).toContainText("on the list", { timeout: 15_000 });
-      if (pass === 2) await expect(page.getByText("You're already on the list")).toBeVisible();
+      await expect(page.locator('[role="status"]')).toContainText(/on the (tester list|waitlist)/, { timeout: 15_000 });
+      if (pass === 2) await expect(page.getByText("You're already on the list.")).toBeVisible();
     }
   });
 });

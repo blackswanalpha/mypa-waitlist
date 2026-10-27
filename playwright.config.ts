@@ -1,11 +1,12 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * The landing-page scenarios in e2e/. They run against a server you start
- * (`next build && next start -p 20301`, so CLS is measured on a production
- * build). The submission scenarios write through /api/waitlist to the
- * backend in that server's BACKEND_URL, so start it with BACKEND_URL and
- * BACKEND_SERVICE_KEY set. Point E2E_BASE_URL elsewhere to retarget.
+ * The landing-page and tester-program scenarios in e2e/. They run against a
+ * server you start (`next build && next start -p 20301`, so CLS is measured
+ * on a production build). Submissions write tester rows to that server's
+ * Convex deployment. The `testers` project signs in to /admin, so set
+ * E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD. Point E2E_BASE_URL elsewhere to
+ * retarget.
  */
 export default defineConfig({
   testDir: "e2e",
@@ -20,8 +21,10 @@ export default defineConfig({
     channel: "chromium",
   },
   projects: [
-    { name: "scenarios", testIgnore: /perf\.spec\.ts/ },
+    { name: "scenarios", testIgnore: /(perf|testers)\.spec\.ts/ },
+    // Closes and reopens signups, so it runs alone after the submissions.
+    { name: "testers", testMatch: /testers\.spec\.ts/, dependencies: ["scenarios"] },
     // Frame rate, CLS and LCP run last and alone so parallel browsers do not skew them.
-    { name: "perf", testMatch: /perf\.spec\.ts/, dependencies: ["scenarios"] },
+    { name: "perf", testMatch: /perf\.spec\.ts/, dependencies: ["testers"] },
   ],
 });

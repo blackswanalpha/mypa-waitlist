@@ -50,6 +50,49 @@ export default defineSchema({
     .index("by_referralCode", ["referralCode"])
     .index("by_referralCount", ["referralCount"]),
 
+  // The early-tester program: the landing form writes here. An admin approves
+  // a row, which emails the Firebase App Distribution invite and install
+  // guide. The build is Android-only, so `device` picks the guide (Samsung
+  // adds the Auto Blocker steps) and keeps iPhone rows from being approved.
+  testers: defineTable({
+    email: v.string(),
+    device: v.union(
+      v.literal("samsung"),
+      v.literal("android"),
+      v.literal("iphone"),
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("declined"),
+    ),
+    position: v.number(), // 1-based signup order
+    source: v.optional(v.string()),
+    createdAt: v.number(),
+    approvedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.string()),
+    guideEmailId: v.optional(v.string()), // Resend component id of the last guide sent
+    guideSentAt: v.optional(v.number()),
+    guideSends: v.optional(v.number()),
+    utmSource: v.optional(v.string()),
+    referrerDomain: v.optional(v.string()),
+    landingPath: v.optional(v.string()),
+  })
+    .index("by_email", ["email"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_status", ["status", "createdAt"]),
+
+  // Admin-editable program settings, one row (key "tester").
+  programSettings: defineTable({
+    key: v.literal("tester"),
+    signupsOpen: v.boolean(),
+    slots: v.number(),
+    inviteLink: v.optional(v.string()), // Firebase App Distribution group invite link
+    socials: v.array(v.object({ label: v.string(), url: v.string() })),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string()),
+  }).index("by_key", ["key"]),
+
   // Raw first-party page views (no cookies, no IP, no full UA — coarse device
   // class only). Pruned to ~90 days by the daily cron; the durable history
   // lives in trafficDaily.

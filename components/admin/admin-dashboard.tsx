@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { LogOut, Users } from "lucide-react";
+import { CheckCircle2, Clock, LogOut, Users } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { MyPALogo } from "@/components/mypa-logo";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard } from "@/components/admin/stat-card";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
+import { TestersTab } from "@/components/admin/testers-tab";
 import { AnalyticsTab } from "@/components/admin/analytics-tab";
 import { AcquisitionTab } from "@/components/admin/acquisition-tab";
 import { ReferralsTab } from "@/components/admin/referrals-tab";
@@ -18,7 +19,8 @@ import { EmailTab } from "@/components/admin/email-tab";
 
 export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
   const { signOut } = useAuthActions();
-  const waitlistCount = useQuery(api.waitlist.count);
+  const tester = useQuery(api.testers.overview);
+  const counts = tester?.counts;
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,23 +56,32 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <StatCard icon={Users} label="Signups" value={waitlistCount} />
+          <StatCard icon={Users} label="Tester signups" value={counts?.total} />
+          <StatCard
+            icon={CheckCircle2}
+            label="Approved testers"
+            value={counts?.approved}
+            hint={tester ? `of ${tester.settings.slots} slots` : undefined}
+          />
+          <StatCard icon={Clock} label="Waiting for approval" value={counts?.pending} />
         </div>
 
-        <Tabs defaultValue="waitlist" className="mt-8 gap-4">
+        <Tabs defaultValue="testers" className="mt-8 gap-4">
           <TabsList>
-            <TabsTrigger value="waitlist">
-              Waitlist
-              {waitlistCount !== undefined && (
-                <Badge variant="secondary">{waitlistCount}</Badge>
-              )}
+            <TabsTrigger value="testers">
+              Testers
+              {counts !== undefined && <Badge variant="secondary">{counts.total}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="waitlist">Old waitlist</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
             <TabsTrigger value="referrals">Referrals</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="testers">
+            <TestersTab />
+          </TabsContent>
           <TabsContent value="waitlist">
             <div className="rounded-xl border border-border bg-card p-2">
               <WaitlistTab />
