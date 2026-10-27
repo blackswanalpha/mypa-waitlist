@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Header } from "@/components/header";
@@ -6,10 +7,22 @@ import { Hero } from "@/components/hero";
 import { DayCarousel } from "@/components/day-carousel";
 import type { Program } from "@/components/tester-card";
 
-// Open/closed is read per request, so an admin's toggle shows on the next load.
+// Rendered per request, but the program itself is cached for 15s (below).
 export const dynamic = "force-dynamic";
 
 const FALLBACK: Program = { open: true, slots: 40, spotsLeft: 40, socials: [] };
+
+/**
+ * One Convex read per 15s however many visitors arrive, so traffic does not
+ * turn into function calls one for one. An admin's open/close shows within
+ * 15s; the apply mutation enforces it immediately either way. Failures are
+ * not cached.
+ */
+const readProgram = unstable_cache(
+  async (url: string) => new ConvexHttpClient(url).query(api.testers.program, {}),
+  ["testers-program"],
+  { revalidate: 15 },
+);
 
 /**
  * Never lets Convex take the landing page down: an unreachable deployment, a
@@ -21,7 +34,7 @@ async function loadProgram(): Promise<Program> {
   if (!url) return FALLBACK;
   try {
     return await Promise.race([
-      new ConvexHttpClient(url).query(api.testers.program, {}),
+      readProgram(url),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 2500)),
     ]);
   } catch (e) {

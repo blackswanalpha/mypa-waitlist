@@ -209,9 +209,12 @@ test.describe("admin", () => {
     await expect(page.getByText("Signups closed.")).toBeVisible();
     try {
       const visitor = await browser.newPage();
-      await visitor.goto("/");
       const card = visitor.locator('[data-card="closed"]');
-      await expect(card).toContainText("tester spots are filled");
+      // The landing caches the program for 15s, so the card can take that long.
+      await expect(async () => {
+        await visitor.goto("/");
+        await expect(card).toContainText("tester spots are filled", { timeout: 1_000 });
+      }).toPass({ timeout: 40_000, intervals: [2_000] });
       await expect(visitor.locator(FORM)).toHaveCount(0);
       await expect(visitor.locator('[data-card="tester"]')).toHaveCount(0);
       await expect(card.getByRole("link").first()).toHaveAttribute("href", /^https:\/\//);
