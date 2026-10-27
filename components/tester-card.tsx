@@ -12,7 +12,7 @@ export function TesterCard({ slots, spotsLeft }: Pick<Program, "slots" | "spotsL
   return (
     <div
       data-card="tester"
-      className="flex items-start gap-3 rounded-[6px] border border-blue-200 bg-blue-50 px-4 py-3.5 text-left text-blue-900"
+      className="flex items-start gap-3 rounded-[6px] border border-blue-200 bg-blue-50 px-4 py-3 text-left text-blue-900 sm:py-3.5"
     >
       <FlaskConical className="mt-0.5 h-[18px] w-[18px] shrink-0 text-blue-700" strokeWidth={2} aria-hidden />
       <div className="min-w-0 flex-1">

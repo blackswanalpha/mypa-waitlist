@@ -170,7 +170,7 @@ export function WaitlistForm({
       noValidate
       aria-label="Join the MyPA waitlist"
     >
-      <fieldset className="mb-3">
+      <fieldset className="mb-2">
         <legend className="mb-2 flex w-full items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
           <Smartphone className="h-3.5 w-3.5" aria-hidden />
           Which phone will you test on?
@@ -219,7 +219,8 @@ export function WaitlistForm({
         )}
       </fieldset>
 
-      <div className="mb-2 grid grid-cols-2 gap-2">
+      {/* Names, then email beside the optional phone, then consent beside the button. */}
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <label htmlFor="firstName" className="sr-only">First name</label>
           <input
@@ -247,55 +248,75 @@ export function WaitlistForm({
           />
         </div>
       </div>
-      <div className="mb-2">
-        <label htmlFor="phone" className="sr-only">Phone number (optional)</label>
-        <input
-          id="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="Phone number (optional)"
-          className={fieldClass(!!errors.phone)}
-          aria-invalid={!!errors.phone}
-          aria-describedby={errors.phone ? "waitlist-message" : undefined}
-          {...form.register("phone")}
-          {...listening}
-        />
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div>
+          <label htmlFor="email" className="sr-only">Email address</label>
+          <input
+            id="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="Your email"
+            className={fieldClass(!!errors.email)}
+            aria-invalid={!!errors.email}
+            aria-describedby={message ? "waitlist-message" : undefined}
+            {...email}
+            onFocus={() => !holding.current && onMood?.("listen")}
+            onChange={(e) => {
+              email.onChange(e);
+              holding.current = false;
+              onMood?.("listen");
+            }}
+            onBlur={(e) => {
+              email.onBlur(e);
+              if (!submitting && !holding.current) onMood?.("idle");
+            }}
+          />
+        </div>
+        <div>
+          <label htmlFor="phone" className="sr-only">Phone number (optional)</label>
+          <input
+            id="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="Phone (optional)"
+            className={fieldClass(!!errors.phone)}
+            aria-invalid={!!errors.phone}
+            aria-describedby={errors.phone ? "waitlist-message" : undefined}
+            {...form.register("phone")}
+            {...listening}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <label htmlFor="email" className="sr-only">Email address</label>
-        <input
-          id="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="Your email"
-          className={cn(
-            "h-14 min-w-0 rounded-[8px] sm:flex-1 border bg-background px-5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground",
-            "transition-[border-color,box-shadow] duration-200 ease-out",
-            "focus:border-foreground/60 focus:ring-4 focus:ring-secondary",
-            errors.email ? "border-destructive/60" : "border-input hover:border-foreground/30",
-          )}
-          aria-invalid={!!errors.email}
-          aria-describedby={message ? "waitlist-message" : undefined}
-          {...email}
-          onFocus={() => !holding.current && onMood?.("listen")}
-          onChange={(e) => {
-            email.onChange(e);
-            holding.current = false;
-            onMood?.("listen");
-          }}
-          onBlur={(e) => {
-            email.onBlur(e);
-            if (!submitting && !holding.current) onMood?.("idle");
-          }}
-        />
+      {/* Honeypot: visually hidden and skipped by keyboard/screen readers. */}
+      <div className="sr-only" aria-hidden="true">
+        <label htmlFor="website">Leave this field empty</label>
+        <input id="website" type="text" tabIndex={-1} autoComplete="off" {...form.register("website")} />
+      </div>
+
+      <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <label
+          htmlFor="agreed"
+          className="flex min-h-11 cursor-pointer items-center gap-2.5 text-left text-[13px] leading-snug text-foreground"
+        >
+          <Checkbox
+            id="agreed"
+            className="shrink-0 shadow-none data-[state=checked]:border-fern data-[state=checked]:bg-fern data-[state=checked]:text-white"
+            checked={form.watch("agreed")}
+            aria-invalid={!!errors.agreed}
+            aria-describedby={errors.agreed ? "waitlist-message" : undefined}
+            onCheckedChange={(c) => form.setValue("agreed", c === true, { shouldValidate: form.formState.isSubmitted })}
+          />
+          Email me my tester invite and launch updates.
+        </label>
         <button
           type="submit"
           disabled={submitting}
           className={cn(
-            "group inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-black px-6 text-sm font-medium text-white",
+            "group inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-black px-6 text-sm font-medium text-white",
             "transition-transform duration-200 ease-out active:scale-[0.97]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black disabled:cursor-progress",
           )}
@@ -307,29 +328,6 @@ export function WaitlistForm({
             <ArrowRight className="h-4 w-4 transition-transform duration-300 ease-out group-hover:translate-x-0.5" />
           )}
         </button>
-      </div>
-
-      {/* Honeypot: visually hidden and skipped by keyboard/screen readers. */}
-      <div className="sr-only" aria-hidden="true">
-        <label htmlFor="website">Leave this field empty</label>
-        <input id="website" type="text" tabIndex={-1} autoComplete="off" {...form.register("website")} />
-      </div>
-
-      <div className="mt-2 flex justify-center">
-        <label
-          htmlFor="agreed"
-          className="flex min-h-11 cursor-pointer items-center gap-2.5 px-2 text-[13px] text-foreground"
-        >
-          <Checkbox
-            id="agreed"
-            className="shadow-none data-[state=checked]:border-fern data-[state=checked]:bg-fern data-[state=checked]:text-white"
-            checked={form.watch("agreed")}
-            aria-invalid={!!errors.agreed}
-            aria-describedby={errors.agreed ? "waitlist-message" : undefined}
-            onCheckedChange={(c) => form.setValue("agreed", c === true, { shouldValidate: form.formState.isSubmitted })}
-          />
-          Email me my tester invite and launch updates.
-        </label>
       </div>
 
       <p

@@ -7,6 +7,9 @@ import { SLIDES } from "../lib/carousel";
 // closes and reopens them, so it runs after this file (playwright.config.ts).
 
 const VIEWPORTS: [number, number][] = [
+  [360, 780],
+  [1280, 720],
+  [1366, 768],
   [320, 640],
   [375, 812],
   [390, 844],
@@ -208,15 +211,30 @@ for (const [w, h] of VIEWPORTS) {
       else expect(carousel.y).toBeGreaterThanOrEqual(form.y + form.height);
     });
 
-    test("the button sits outside the email field", async ({ page }) => {
+    test("email sits under the names, and consent sits beside the button", async ({ page }) => {
       await home(page);
-      const field = (await page.locator("#email").boundingBox())!;
+      const first = (await page.locator("#firstName").boundingBox())!;
+      const email = (await page.locator("#email").boundingBox())!;
       const button = (await page.locator(`${FORM} button[type=submit]`).boundingBox())!;
-      const ix = Math.max(0, Math.min(field.x + field.width, button.x + button.width) - Math.max(field.x, button.x));
-      const iy = Math.max(0, Math.min(field.y + field.height, button.y + button.height) - Math.max(field.y, button.y));
-      expect(ix * iy).toBe(0);
-      if (w >= 640) expect(button.x).toBeGreaterThanOrEqual(field.x + field.width);
-      else expect(button.y).toBeGreaterThanOrEqual(field.y + field.height);
+      const consent = (await page.locator('label[for="agreed"]').boundingBox())!;
+      expect(email.y).toBeGreaterThanOrEqual(first.y + first.height);
+      expect(button.y).toBeGreaterThanOrEqual(email.y + email.height);
+      if (w >= 640) {
+        // Same row: consent on the left, button on the right.
+        expect(consent.x + consent.width).toBeLessThanOrEqual(button.x);
+        expect(Math.abs(consent.y + consent.height / 2 - (button.y + button.height / 2))).toBeLessThan(4);
+      } else {
+        expect(button.y).toBeGreaterThanOrEqual(consent.y + consent.height);
+      }
+    });
+
+    test("the join button is on screen without scrolling", async ({ page }) => {
+      // 320x640 is the one size too short to hold the whole form.
+      test.skip(w < 360 || h < 720, "smaller than any phone or laptop we design for");
+      await home(page);
+      const button = (await page.locator(`${FORM} button[type=submit]`).boundingBox())!;
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(button.y + button.height).toBeLessThanOrEqual(h);
     });
 
     test("the header icon is the lime puzzle and the page holds no second copy", async ({ page }) => {
