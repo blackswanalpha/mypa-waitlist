@@ -12,7 +12,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { BotMood } from "@/components/glance-bot";
 import { cn } from "@/lib/utils";
 
+const PHONE_RE = /^\+?[\d\s().-]{7,}$/;
+
 const schema = z.object({
+  firstName: z.string().trim().min(1, { message: "Add your first name." }).max(100, { message: "That first name is too long." }),
+  lastName: z.string().trim().min(1, { message: "Add your last name." }).max(100, { message: "That last name is too long." }),
+  phone: z
+    .string()
+    .trim()
+    .max(32, { message: "That phone number doesn’t look right." })
+    .refine((v) => !v || (PHONE_RE.test(v) && v.replace(/\D/g, "").length >= 7 && v.replace(/\D/g, "").length <= 15), {
+      message: "That phone number doesn’t look right.",
+    })
+    .optional(),
   email: z
     .string()
     .trim()
@@ -53,7 +65,7 @@ export function WaitlistForm({
   onMood?: (mood: BotMood) => void;
   onClosed?: () => void;
 }) {
-  const [done, setDone] = useState<(Result & { email: string; device: Device }) | null>(null);
+  const [done, setDone] = useState<(Result & { email: string; device: Device; firstName: string }) | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   // After a rejected submit the bot holds its reaction until you type again;
   // the form refocusing the field must not read as "listening".
@@ -61,7 +73,7 @@ export function WaitlistForm({
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", device: undefined, agreed: true, website: "" },
+    defaultValues: { firstName: "", lastName: "", phone: "", email: "", device: undefined, agreed: true, website: "" },
   });
 
   const onSubmit = async (data: Values) => {
@@ -72,6 +84,9 @@ export function WaitlistForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone || undefined,
           email: data.email,
           device: data.device,
           source: "landing",
@@ -103,6 +118,7 @@ export function WaitlistForm({
         slots: body.slots ?? 0,
         status: body.status ?? "pending",
         email: data.email.trim().toLowerCase(),
+        firstName: data.firstName.trim(),
         device: data.device,
       });
       onMood?.("done");
@@ -121,7 +137,27 @@ export function WaitlistForm({
   const errors = form.formState.errors;
   const submitting = form.formState.isSubmitting;
   const message =
-    errors.device?.message ?? errors.email?.message ?? errors.agreed?.message ?? serverError;
+    errors.device?.message ??
+    errors.firstName?.message ??
+    errors.lastName?.message ??
+    errors.email?.message ??
+    errors.phone?.message ??
+    errors.agreed?.message ??
+    serverError;
+  // Every field makes the bot listen while you type, like the email bar always did.
+  const listening = {
+    onFocus: () => !holding.current && onMood?.("listen"),
+    onInput: () => {
+      holding.current = false;
+      onMood?.("listen");
+    },
+  };
+  const fieldClass = (bad: boolean) =>
+    cn(
+      "h-12 w-full min-w-0 rounded-[8px] border bg-background px-4 text-[15px] text-foreground outline-none placeholder:text-muted-foreground",
+      "transition-[border-color,box-shadow] duration-200 ease-out focus:border-foreground/60 focus:ring-4 focus:ring-secondary",
+      bad ? "border-destructive/60" : "border-input hover:border-foreground/30",
+    );
   const device = form.watch("device");
   const email = form.register("email");
 
@@ -182,6 +218,50 @@ export function WaitlistForm({
           </p>
         )}
       </fieldset>
+
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor="firstName" className="sr-only">First name</label>
+          <input
+            id="firstName"
+            autoComplete="given-name"
+            placeholder="First name"
+            className={fieldClass(!!errors.firstName)}
+            aria-invalid={!!errors.firstName}
+            aria-describedby={errors.firstName ? "waitlist-message" : undefined}
+            {...form.register("firstName")}
+            {...listening}
+          />
+        </div>
+        <div>
+          <label htmlFor="lastName" className="sr-only">Last name</label>
+          <input
+            id="lastName"
+            autoComplete="family-name"
+            placeholder="Last name"
+            className={fieldClass(!!errors.lastName)}
+            aria-invalid={!!errors.lastName}
+            aria-describedby={errors.lastName ? "waitlist-message" : undefined}
+            {...form.register("lastName")}
+            {...listening}
+          />
+        </div>
+      </div>
+      <div className="mb-2">
+        <label htmlFor="phone" className="sr-only">Phone number (optional)</label>
+        <input
+          id="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="Phone number (optional)"
+          className={fieldClass(!!errors.phone)}
+          aria-invalid={!!errors.phone}
+          aria-describedby={errors.phone ? "waitlist-message" : undefined}
+          {...form.register("phone")}
+          {...listening}
+        />
+      </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor="email" className="sr-only">Email address</label>
@@ -275,7 +355,8 @@ function Saved({
   status,
   email,
   device,
-}: Result & { email: string; device: Device }) {
+  firstName,
+}: Result & { email: string; device: Device; firstName: string }) {
   const tester = position > 0 && position <= slots;
   let badge: string;
   let title: string;
@@ -307,7 +388,7 @@ function Saved({
         <p className="text-[13px] font-medium text-fern">{badge}</p>
       </div>
       <h2 className="mt-3 text-[22px] font-medium leading-tight tracking-[-0.02em] text-foreground">
-        {title}
+        {firstName ? `${firstName}, ${title[0].toLowerCase()}${title.slice(1)}` : title}
       </h2>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
     </div>

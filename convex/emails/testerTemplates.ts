@@ -216,6 +216,7 @@ export function testerReceivedHtml(opts: {
   position: number;
   slots: number;
   device: TesterDevice;
+  firstName?: string;
 }): string {
   const inTesterRange = opts.position <= opts.slots;
   const lead = inTesterRange
@@ -233,7 +234,7 @@ export function testerReceivedHtml(opts: {
       : "";
   return layout(
     "Your place on the MyPA tester list is saved.",
-    `<h1 style="margin:0 0 14px 0;font-size:24px;line-height:1.25;color:${INK};">You&rsquo;re on the list.</h1>
+    `<h1 style="margin:0 0 14px 0;font-size:24px;line-height:1.25;color:${INK};">${opts.firstName ? `${esc(opts.firstName)}, you&rsquo;re on the list.` : "You&rsquo;re on the list."}</h1>
      ${lead}
      ${iphone}
      <p style="margin:0;color:${MUTED};">Thanks for wanting to try MyPA early.<br/>The MyPA team</p>`,
@@ -250,6 +251,7 @@ export function testerGuideHtml(opts: {
   device: TesterDevice;
   inviteLink: string;
   email: string;
+  firstName?: string;
   origin?: string;
 }): string {
   const origin = (opts.origin ?? DEFAULT_PUBLIC_ORIGIN).replace(/\/$/, "");
@@ -267,7 +269,7 @@ export function testerGuideHtml(opts: {
 
   return layout(
     "You're approved as a MyPA early tester. Your invite and install guide are inside.",
-    `<h1 style="margin:0 0 14px 0;font-size:24px;line-height:1.25;color:${INK};">You&rsquo;re in. Welcome to the MyPA tester group.</h1>
+    `<h1 style="margin:0 0 14px 0;font-size:24px;line-height:1.25;color:${INK};">${opts.firstName ? `${esc(opts.firstName)}, you&rsquo;re in.` : "You&rsquo;re in."} Welcome to the MyPA tester group.</h1>
      <p style="margin:0 0 4px 0;">Your tester spot is approved. You&rsquo;ll get MyPA on your Android phone before anyone else, and what you tell us shapes the app.</p>
      ${button(opts.inviteLink, "Accept your tester invite")}
      <p style="margin:0 0 4px 0;font-size:14px;color:${FAINT};">Prefer a bigger screen? <a href="${esc(guideUrl)}" style="color:${BLUE};">Open the install guide in your browser</a>.</p>

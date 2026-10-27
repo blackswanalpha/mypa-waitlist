@@ -15,6 +15,8 @@ import { api } from "@/convex/_generated/api";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL = 254;
 const MAX_ATTRIBUTION = 200;
+const MAX_NAME = 100;
+const MAX_PHONE = 32;
 const DEVICES = ["samsung", "android", "iphone"] as const;
 type Device = (typeof DEVICES)[number];
 
@@ -31,6 +33,9 @@ const ATTRIBUTION_KEYS = [
 ] as const;
 
 type Body = {
+  firstName?: unknown;
+  lastName?: unknown;
+  phone?: unknown;
   email?: unknown;
   device?: unknown;
   agreed?: unknown;
@@ -54,6 +59,13 @@ export async function POST(req: Request) {
   // Report success without writing anything.
   if (body.website) return NextResponse.json({ duplicate: false, position: 0, slots: 0 });
 
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const firstName = text(body.firstName);
+  const lastName = text(body.lastName);
+  const phone = text(body.phone);
+  if (!firstName || firstName.length > MAX_NAME) return fail(400, "Add your first name.");
+  if (!lastName || lastName.length > MAX_NAME) return fail(400, "Add your last name.");
+  if (phone.length > MAX_PHONE) return fail(400, "That phone number doesn't look right.");
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   if (email.length > MAX_EMAIL || !EMAIL_RE.test(email)) {
     return fail(400, "Please enter a valid email address.");
@@ -75,26 +87,35 @@ export async function POST(req: Request) {
     if (v) attribution[k] = v;
   }
 
-  let result: { duplicate: boolean; position: number; slots: number; status: string };
-  try {
-    result = await new ConvexHttpClient(convexUrl).mutation(api.testers.apply, {
-      email,
-      device: body.device as Device,
-      agreed: true,
-      source: capped(body.source) ?? "landing",
-      utmSource: attribution.utmSource,
-      referrerDomain: attribution.referrerDomain,
-      landingPath: attribution.landingPath,
-    });
-  } catch (e) {
-    if (e instanceof ConvexError) {
-      const data = e.data as { code?: string; message?: string };
-      return fail(STATUS_FOR[data.code ?? ""] ?? 400, data.message ?? "Please try again.", {
-        code: data.code,
-      });
+  let result: { duplicate: boolean; position: number; slots: number; status: string } | undefined;
+  const client = new ConvexHttpClient(convexUrl);
+  const args = {
+    firstName,
+    lastName,
+    phone: phone || undefined,
+    email,
+    device: body.device as Device,
+    agreed: true,
+    source: capped(body.source) ?? "landing",
+    utmSource: attribution.utmSource,
+    referrerDomain: attribution.referrerDomain,
+    landingPath: attribution.landingPath,
+  };
+  // One retry on a network failure. If the first attempt did commit, the
+  // retry finds the row and comes back as a duplicate, which is still a save.
+  for (let attempt = 1; !result; attempt++) {
+    try {
+      result = await client.mutation(api.testers.apply, args);
+    } catch (e) {
+      if (e instanceof ConvexError) {
+        const data = e.data as { code?: string; message?: string };
+        return fail(STATUS_FOR[data.code ?? ""] ?? 400, data.message ?? "Please try again.", {
+          code: data.code,
+        });
+      }
+      console.error(`waitlist: Convex apply failed (attempt ${attempt})`, e);
+      if (attempt >= 2) return fail(503, "We couldn't save your spot right now. Please try again.");
     }
-    console.error("waitlist: Convex apply failed", e);
-    return fail(503, "We couldn't save your spot right now. Please try again.");
   }
 
   if (!result.duplicate) await forwardToBackend(req, email, body, attribution);

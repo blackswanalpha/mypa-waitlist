@@ -55,6 +55,9 @@ export default defineSchema({
   // guide. The build is Android-only, so `device` picks the guide (Samsung
   // adds the Auto Blocker steps) and keeps iPhone rows from being approved.
   testers: defineTable({
+    firstName: v.optional(v.string()), // required by the form; optional for rows that predate it
+    lastName: v.optional(v.string()),
+    phone: v.optional(v.string()), // optional, as typed (spaces and + kept)
     email: v.string(),
     device: v.union(
       v.literal("samsung"),
