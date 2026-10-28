@@ -66,6 +66,12 @@ function row(page: Page, email: string) {
   return page.locator(`tr[data-email="${email}"]`);
 }
 
+/** The table pages its rows oldest first, so a fresh signup is found by searching for it. */
+async function find(page: Page, email: string) {
+  await page.getByRole("searchbox", { name: "Search testers" }).fill(email);
+  return row(page, email);
+}
+
 test("the tester card is blue, square-ish and says who becomes a tester", async ({ page }) => {
   await page.goto("/");
   const card = page.locator('[data-card="tester"]');
@@ -165,12 +171,12 @@ test.describe("admin", () => {
       [android, "android"],
       [iphone, "iphone"],
     ]) {
-      await expect(row(page, email)).toBeVisible({ timeout: 15_000 });
+      await expect(await find(page, email)).toBeVisible({ timeout: 15_000 });
       await expect(row(page, email).locator("select")).toHaveValue(phone);
       await expect(row(page, email)).toContainText("Pending");
       await expect(row(page, email)).toContainText(phone === "iphone" ? "Grace Apple" : "Grace Hopper");
     }
-    await expect(row(page, samsung)).toContainText("+254 712 345 678");
+    await expect(await find(page, samsung)).toContainText("+254 712 345 678");
   });
 
   test("approving needs the invite link, and an iPhone can't be approved", async ({ page }) => {
@@ -187,18 +193,18 @@ test.describe("admin", () => {
     }
     await expect(page.getByText("Approving is off until")).toHaveCount(0);
     await page.getByRole("tab", { name: /Pending/ }).click();
-    await expect(row(page, iphone).getByRole("button", { name: /Approve/ })).toBeDisabled();
+    await expect((await find(page, iphone)).getByRole("button", { name: /Approve/ })).toBeDisabled();
   });
 
   test("approve emails the guide; resend sends it again; the row shows both", async ({ page }) => {
     await signIn(page);
     await page.getByRole("tab", { name: /Pending/ }).click();
     for (const email of [samsung, android]) {
-      await row(page, email).getByRole("button", { name: /Approve/ }).click();
+      await (await find(page, email)).getByRole("button", { name: /Approve/ }).click();
       await expect(page.getByText(`Approved ${email}. Guide email queued.`)).toBeVisible();
     }
     await page.getByRole("tab", { name: /Approved/ }).click();
-    const r = row(page, samsung);
+    const r = await find(page, samsung);
     await expect(r).toContainText("Approved");
     // Resend accepted it; a missing key or a rejected address would read Failed.
     await expect(r.locator("td").nth(6)).toContainText(/Sent to Resend|Delivered/, { timeout: 45_000 });
@@ -210,7 +216,7 @@ test.describe("admin", () => {
   test("decline, back to pending, delete", async ({ page }) => {
     await signIn(page);
     await page.getByRole("tab", { name: "All" }).click();
-    const r = row(page, iphone);
+    const r = await find(page, iphone);
     await r.getByRole("button", { name: "Decline" }).click();
     await expect(r).toContainText("Declined");
     await r.getByRole("button", { name: "Pending" }).click();
@@ -277,7 +283,9 @@ test.describe("admin", () => {
     await signIn(page);
     await page.getByRole("tab", { name: "All" }).click();
     for (const email of [samsung, android]) {
-      const r = row(page, email);
+      const r = await find(page, email);
+      // Searching loads every row first; give it a moment before deciding the row is gone.
+      await r.waitFor({ timeout: 10_000 }).catch(() => {});
       if ((await r.count()) === 0) continue;
       await r.getByRole("button", { name: `Delete ${email}` }).click();
       await r.getByRole("button", { name: "Confirm delete" }).click();

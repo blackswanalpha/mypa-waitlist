@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 /** Identifies which admin table a piece of UI state belongs to. */
-export type AdminTableKey = "waitlist";
+export type AdminTableKey = "waitlist" | "testers";
 
 /** Rows-per-page choices offered in the pagination control. */
 export const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
@@ -13,7 +13,7 @@ const DEFAULT_PAGE_SIZE = 25;
 type TableState = {
   pageIndex: number;
   pageSize: number;
-  /** Optional server-side filter (waitlist status chips). */
+  /** Optional server-side filter (the status chips). */
   statusFilter?: string;
 };
 
@@ -32,6 +32,7 @@ type Store = {
 export const useAdminTableStore = create<Store>((set) => ({
   tables: {
     waitlist: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
+    testers: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
   },
   setPageIndex: (key, pageIndex) =>
     set((s) => ({

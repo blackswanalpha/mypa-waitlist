@@ -19,6 +19,9 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // The console's one emphasised action per screen.
+        brand:
+          "bg-brand text-brand-foreground font-semibold shadow-[inset_0_1px_0_rgb(255_255_255/0.4),0_1px_2px_rgb(0_0_0/0.2)] hover:brightness-105 focus-visible:ring-brand/50",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

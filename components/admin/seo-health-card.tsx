@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowPathIcon, ArrowUpRightIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/16/solid";
+import { MagnifyingGlassCircleIcon } from "@heroicons/react/24/outline";
+import { Panel, PanelHeader, StatusPill } from "@/components/admin/kit";
 
 type CheckResult = "pending" | "pass" | "fail";
 
@@ -55,64 +56,68 @@ export function SeoHealthCard() {
     };
   }, []);
 
+  const passed = CHECKS.filter((c) => results[c.path] === "pass").length;
+  const done = CHECKS.every((c) => results[c.path] && results[c.path] !== "pending");
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">SEO health</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <ul className="space-y-2">
-          {CHECKS.map((check) => {
-            const state: CheckResult = results[check.path] ?? "pending";
-            return (
-              <li
-                key={check.path}
-                className="flex items-center justify-between gap-3 text-sm"
+    <Panel className="pb-5">
+      <PanelHeader
+        icon={MagnifyingGlassCircleIcon}
+        title="SEO health"
+        actions={
+          done ? (
+            <StatusPill tone={passed === CHECKS.length ? "brand" : "warn"}>
+              {passed} of {CHECKS.length} passing
+            </StatusPill>
+          ) : undefined
+        }
+      />
+      <ul className="mt-5 space-y-2.5 px-5">
+        {CHECKS.map((check) => {
+          const state: CheckResult = results[check.path] ?? "pending";
+          return (
+            <li key={check.path} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-foreground">{check.label}</span>
+              {state === "pending" && (
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <ArrowPathIcon className="size-4 animate-spin" />
+                  Checking
+                </span>
+              )}
+              {state === "pass" && (
+                <span className="flex items-center gap-1.5 text-brand-ink">
+                  <CheckCircleIcon className="size-4" />
+                  OK
+                </span>
+              )}
+              {state === "fail" && (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <XCircleIcon className="size-4" />
+                  Missing
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mx-5 mt-5 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">Validate share previews and structured data:</p>
+        <ul className="mt-2 space-y-1.5">
+          {TOOLS.map((tool) => (
+            <li key={tool.href}>
+              <a
+                href={tool.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-1 text-sm text-foreground underline-offset-4 hover:underline"
               >
-                <span className="text-foreground">{check.label}</span>
-                {state === "pending" && (
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Checking
-                  </span>
-                )}
-                {state === "pass" && (
-                  <span className="flex items-center gap-1.5 text-fern">
-                    <CheckCircle2 className="h-4 w-4" />
-                    OK
-                  </span>
-                )}
-                {state === "fail" && (
-                  <span className="flex items-center gap-1.5 text-destructive">
-                    <XCircle className="h-4 w-4" />
-                    Missing
-                  </span>
-                )}
-              </li>
-            );
-          })}
+                {tool.label}
+                <ArrowUpRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </a>
+            </li>
+          ))}
         </ul>
-        <div className="border-t border-border/50 pt-3">
-          <p className="text-xs text-muted-foreground">
-            Validate share previews &amp; structured data:
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {TOOLS.map((tool) => (
-              <li key={tool.href}>
-                <a
-                  href={tool.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80"
-                >
-                  {tool.label}
-                  <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
