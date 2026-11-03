@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Check, ArrowRight, Smartphone } from "lucide-react";
@@ -9,22 +9,17 @@ import { toast } from "sonner";
 import { getAttribution } from "@/lib/attribution";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { PhoneField } from "@/components/phone-field";
+import { country, detectRegion, isPossible, toInternational, type CountryCode } from "@/lib/phone/countries";
 import type { BotMood } from "@/components/glance-bot";
 import { cn } from "@/lib/utils";
-
-const PHONE_RE = /^\+?[\d\s().-]{7,}$/;
 
 const schema = z.object({
   firstName: z.string().trim().min(1, { message: "Add your first name." }).max(100, { message: "That first name is too long." }),
   lastName: z.string().trim().min(1, { message: "Add your last name." }).max(100, { message: "That last name is too long." }),
-  phone: z
-    .string()
-    .trim()
-    .max(32, { message: "That phone number doesn’t look right." })
-    .refine((v) => !v || (PHONE_RE.test(v) && v.replace(/\D/g, "").length >= 7 && v.replace(/\D/g, "").length <= 15), {
-      message: "That phone number doesn’t look right.",
-    })
-    .optional(),
+  // Digits as typed (a leading "+" while the calling code is still unknown); the country sits beside them.
+  phone: z.string().optional(),
+  phoneCountry: z.string().optional(),
   email: z
     .string()
     .trim()
@@ -39,8 +34,25 @@ const schema = z.object({
   }),
   // Honeypot — hidden from real users; bots that fill it get a silent no-op.
   website: z.string().optional(),
+}).superRefine((v, ctx) => {
+  if (!v.phone || v.phone === "+") return;
+  const region = regionOf(v);
+  if (!isPossible(v.phone, region)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["phone"],
+      message: v.phone.startsWith("+")
+        ? "That phone number doesn’t look right."
+        : `That number doesn’t look right for ${country(region).name}.`,
+    });
+  }
 });
 type Values = z.infer<typeof schema>;
+
+/** The country the visitor picked, else the one the field guessed for them. */
+function regionOf(v: { phoneCountry?: string }) {
+  return (v.phoneCountry || detectRegion()) as CountryCode;
+}
 type Device = Values["device"];
 
 const DEVICES: { value: Device; label: string }[] = [
@@ -73,7 +85,7 @@ export function WaitlistForm({
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { firstName: "", lastName: "", phone: "", email: "", device: undefined, agreed: true, website: "" },
+    defaultValues: { firstName: "", lastName: "", phone: "", phoneCountry: "", email: "", device: undefined, agreed: true, website: "" },
   });
 
   const onSubmit = async (data: Values) => {
@@ -86,7 +98,7 @@ export function WaitlistForm({
         body: JSON.stringify({
           firstName: data.firstName,
           lastName: data.lastName,
-          phone: data.phone || undefined,
+          phone: toInternational(data.phone ?? "", regionOf(data)),
           email: data.email,
           device: data.device,
           source: "landing",
@@ -249,7 +261,7 @@ export function WaitlistForm({
         </div>
       </div>
 
-      <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <div>
           <label htmlFor="email" className="sr-only">Email address</label>
           <input
@@ -276,17 +288,22 @@ export function WaitlistForm({
         </div>
         <div>
           <label htmlFor="phone" className="sr-only">Phone number (optional)</label>
-          <input
-            id="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="Phone (optional)"
-            className={fieldClass(!!errors.phone)}
-            aria-invalid={!!errors.phone}
-            aria-describedby={errors.phone ? "waitlist-message" : undefined}
-            {...form.register("phone")}
-            {...listening}
+          <Controller
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <PhoneField
+                digits={field.value ?? ""}
+                picked={(form.watch("phoneCountry") ?? "") as CountryCode | ""}
+                onDigits={field.onChange}
+                onPick={(code) => form.setValue("phoneCountry", code, { shouldValidate: form.formState.isSubmitted })}
+                onBlur={field.onBlur}
+                inputRef={field.ref}
+                invalid={!!errors.phone}
+                describedBy={errors.phone ? "waitlist-message" : undefined}
+                listening={listening}
+              />
+            )}
           />
         </div>
       </div>
