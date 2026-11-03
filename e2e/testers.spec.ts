@@ -176,7 +176,8 @@ test.describe("admin", () => {
       await expect(row(page, email)).toContainText("Pending");
       await expect(row(page, email)).toContainText(phone === "iphone" ? "Grace Apple" : "Grace Hopper");
     }
-    await expect(await find(page, samsung)).toContainText("+254 712 345 678");
+    // The picker stores libphonenumber's international grouping for the country.
+    await expect(await find(page, samsung)).toContainText("+254 712 345678");
   });
 
   test("approving needs the invite link, and an iPhone can't be approved", async ({ page }) => {

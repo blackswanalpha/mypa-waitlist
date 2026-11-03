@@ -320,7 +320,7 @@ test.describe("validation", () => {
     await page.fill("#email", uniqueEmail("badphone"));
     await page.fill("#phone", "12ab");
     await page.locator(`${FORM} button[type=submit]`).click();
-    await expect(page.locator("#waitlist-message")).toHaveText("That phone number doesn’t look right.");
+    await expect(page.locator("#waitlist-message")).toHaveText(/^That number doesn’t look right for .+\.$/);
   });
 
   test("empty submit asks for an email and the bot is unsure", async ({ page }) => {
