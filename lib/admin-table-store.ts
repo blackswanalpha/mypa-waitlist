@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 /** Identifies which admin table a piece of UI state belongs to. */
-export type AdminTableKey = "waitlist" | "testers";
+export type AdminTableKey = "waitlist" | "testers" | "devices" | "evals";
 
 /** Rows-per-page choices offered in the pagination control. */
 export const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
@@ -33,6 +33,8 @@ export const useAdminTableStore = create<Store>((set) => ({
   tables: {
     waitlist: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
     testers: { pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE },
+    devices: { pageIndex: 0, pageSize: 10 },
+    evals: { pageIndex: 0, pageSize: 10 },
   },
   setPageIndex: (key, pageIndex) =>
     set((s) => ({

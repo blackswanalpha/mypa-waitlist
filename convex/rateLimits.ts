@@ -21,6 +21,8 @@ export const limiter = new RateLimiter(components.rateLimiter, {
     period: MINUTE,
     capacity: 40,
   },
+  // Device ↔ signup link from /api/waitlist; one call per accepted signup.
+  linkSignup: { kind: "token bucket", rate: 30, period: MINUTE },
 });
 
 /** Shared server-side length caps (mirrored by the zod schemas client-side). */

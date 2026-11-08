@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api";
+import { DEVICE_COOKIE, isDeviceId } from "@/lib/device-cookie";
 
 /**
  * Tester-list signup. The row is written to this site's Convex `testers`
@@ -51,7 +52,7 @@ const fail = (status: number, error: string, extra?: Record<string, unknown>) =>
 
 const STATUS_FOR: Record<string, number> = { invalid: 400, closed: 409, busy: 429 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as Body | null;
   if (!body) return fail(400, "Something went wrong. Please try again.");
 
@@ -118,8 +119,29 @@ export async function POST(req: Request) {
     }
   }
 
-  if (!result.duplicate) await forwardToBackend(req, email, body, attribution);
+  if (!result.duplicate) {
+    await Promise.all([
+      forwardToBackend(req, email, body, attribution),
+      linkDevice(client, req, email),
+    ]);
+  }
   return NextResponse.json(result);
+}
+
+/**
+ * Tie the new tester row to the device cookie it arrived with. A separate
+ * call rather than an apply argument, so a frontend deployed ahead of Convex
+ * cannot break signups. Logged on failure, never thrown.
+ */
+async function linkDevice(client: ConvexHttpClient, req: NextRequest, email: string) {
+  if (req.headers.get("sec-gpc") === "1" || req.headers.get("dnt") === "1") return;
+  const deviceId = req.cookies.get(DEVICE_COOKIE)?.value;
+  if (!isDeviceId(deviceId)) return;
+  try {
+    await client.mutation(api.analytics.linkSignup, { deviceId, email });
+  } catch (e) {
+    console.error("waitlist: device link failed", e);
+  }
 }
 
 /** Mirror the signup into the product backend. Logged on failure, never thrown. */

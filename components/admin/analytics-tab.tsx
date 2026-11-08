@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Metric, Panel, PanelHeader, Segmented } from "@/components/admin/kit";
 import { RankList, SERIES_COLOR, SignupsChart, Sparkline, TrafficChart } from "@/components/admin/charts";
 import { SeoHealthCard } from "@/components/admin/seo-health-card";
+import { DeviceMetrics, DevicesChartPanel, DevicesTable } from "@/components/admin/devices-section";
 
 const RANGES = [
   { value: "7", label: "7 days" },
@@ -106,6 +107,12 @@ export function AnalyticsTab() {
         />
       </div>
 
+      <DeviceMetrics days={days} series={series} />
+
+      <DevicesChartPanel series={series} />
+
+      <DevicesTable />
+
       <Panel className="pb-5">
         <PanelHeader title="Traffic" description="Page views and unique sessions per day." />
         <div className="mt-5 px-5">{series === undefined ? <Skeleton className="h-[272px] rounded-xl" /> : <TrafficChart data={series} />}</div>
@@ -133,7 +140,7 @@ export function AnalyticsTab() {
           </div>
         </Panel>
         <Panel className="pb-5">
-          <PanelHeader icon={DeviceTabletIcon} title="Devices" />
+          <PanelHeader icon={DeviceTabletIcon} title="Device types" />
           <div className="mt-5 px-5">
             <RankList items={devices ?? []} emptyLabel={devices === undefined ? "Loading…" : "No data yet."} formatLabel={(v) => DEVICE_LABEL[v] ?? v} />
           </div>

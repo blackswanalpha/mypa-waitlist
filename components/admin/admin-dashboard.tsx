@@ -12,6 +12,7 @@ import {
   SunIcon,
 } from "@heroicons/react/20/solid";
 import {
+  BeakerIcon,
   ChartBarSquareIcon,
   EnvelopeIcon,
   MegaphoneIcon,
@@ -40,9 +41,10 @@ import { AnalyticsTab } from "@/components/admin/analytics-tab";
 import { AcquisitionTab } from "@/components/admin/acquisition-tab";
 import { ReferralsTab } from "@/components/admin/referrals-tab";
 import { EmailTab } from "@/components/admin/email-tab";
+import { EvalsTab } from "@/components/admin/evals-tab";
 import { cn } from "@/lib/utils";
 
-type View = "testers" | "waitlist" | "referrals" | "analytics" | "acquisition" | "email";
+type View = "testers" | "waitlist" | "referrals" | "analytics" | "evals" | "acquisition" | "email";
 
 type NavItem = { value: View; label: string; icon: IconType; title: string; description: string };
 
@@ -88,7 +90,14 @@ const NAV: { group: string; items: NavItem[] }[] = [
         label: "Analytics",
         icon: ChartBarSquareIcon,
         title: "Analytics",
-        description: "First-party traffic and signups for the landing page.",
+        description: "First-party traffic, distinct devices and signups for the landing page.",
+      },
+      {
+        value: "evals",
+        label: "Evals",
+        icon: BeakerIcon,
+        title: "Evals",
+        description: "Checks that the device tracking is counting correctly, run daily and on demand.",
       },
       {
         value: "acquisition",
@@ -352,6 +361,7 @@ export function AdminDashboard({ adminEmail }: { adminEmail: string }) {
                 {item.value === "waitlist" && <WaitlistTab />}
                 {item.value === "email" && <EmailTab adminEmail={adminEmail} />}
                 {item.value === "analytics" && <AnalyticsTab />}
+                {item.value === "evals" && <EvalsTab />}
                 {item.value === "acquisition" && <AcquisitionTab />}
                 {item.value === "referrals" && <ReferralsTab />}
               </TabsPrimitive.Content>

@@ -80,6 +80,8 @@ export default defineSchema({
     utmSource: v.optional(v.string()),
     referrerDomain: v.optional(v.string()),
     landingPath: v.optional(v.string()),
+    // The device cookie of the browser that signed up (analytics.linkSignup).
+    deviceId: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_createdAt", ["createdAt"])
@@ -96,9 +98,9 @@ export default defineSchema({
     updatedBy: v.optional(v.string()),
   }).index("by_key", ["key"]),
 
-  // Raw first-party page views (no cookies, no IP, no full UA — coarse device
-  // class only). Pruned to ~90 days by the daily cron; the durable history
-  // lives in trafficDaily.
+  // Raw first-party page views (no IP, no full UA — coarse device class and
+  // the device cookie's random id only). Pruned to ~90 days by the daily cron;
+  // the durable history lives in trafficDaily.
   pageviews: defineTable({
     ts: v.number(),
     day: v.string(), // "YYYY-MM-DD" UTC, server-computed
@@ -112,12 +114,75 @@ export default defineSchema({
       v.literal("tablet"),
       v.literal("desktop"),
     ),
+    // The device cookie (lib/device-cookie.ts). idState says what the beacon
+    // sent: "ok" a valid id, "none" no cookie, "invalid" a malformed one,
+    // "optout" an opt-out signal. Rows from before the cookie have neither.
+    deviceId: v.optional(v.string()),
+    idState: v.optional(
+      v.union(
+        v.literal("ok"),
+        v.literal("none"),
+        v.literal("invalid"),
+        v.literal("optout"),
+      ),
+    ),
   }).index("by_day", ["day"]),
+
+  // One row per device cookie: the distinct browsers that viewed the site.
+  // Written by analytics.track; `signups` by analytics.linkSignup.
+  devices: defineTable({
+    deviceId: v.string(),
+    firstSeen: v.number(),
+    lastSeen: v.number(),
+    daysSeen: v.number(), // distinct UTC days with at least one view
+    views: v.number(),
+    sessions: v.number(),
+    signups: v.optional(v.number()),
+    deviceClass: v.string(), // latest coarse class: mobile | tablet | desktop
+    firstPath: v.optional(v.string()),
+    firstReferrer: v.optional(v.string()),
+    firstUtm: v.optional(v.string()),
+  })
+    .index("by_deviceId", ["deviceId"])
+    .index("by_firstSeen", ["firstSeen"])
+    .index("by_lastSeen", ["lastSeen"])
+    .index("by_signups", ["signups"]),
+
+  // Snapshots of the tracking-quality checks (evals.ts), one per run: the
+  // daily cron and the admin's "Run now".
+  evalRuns: defineTable({
+    createdAt: v.number(),
+    trigger: v.union(v.literal("cron"), v.literal("manual")),
+    by: v.optional(v.string()),
+    days: v.number(),
+    sample: v.number(), // tracked page views the checks read
+    sampled: v.boolean(), // true when the window held more views than were read
+    passed: v.number(),
+    warned: v.number(),
+    failed: v.number(),
+    checks: v.array(
+      v.object({
+        key: v.string(),
+        label: v.string(),
+        status: v.union(
+          v.literal("pass"),
+          v.literal("warn"),
+          v.literal("fail"),
+          v.literal("info"),
+          v.literal("skip"),
+        ),
+        value: v.string(),
+        target: v.string(),
+        detail: v.string(),
+      }),
+    ),
+  }).index("by_createdAt", ["createdAt"]),
 
   // Per-day aggregates, bumped in the same transaction as the pageview insert
   // (and by waitlist.submit for signup dims) so admin charts never scan raw
   // rows. dimension: "views" | "sessions" | "path" | "ref" | "utm" | "device"
-  // | "signup" | "signup_utm"; value is "" for the scalar dims.
+  // | "signup" | "signup_utm" | "views_identified" | "device_active" |
+  // "device_new"; value is "" for the scalar dims.
   trafficDaily: defineTable({
     day: v.string(),
     dimension: v.string(),

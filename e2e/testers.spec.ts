@@ -76,7 +76,7 @@ test("the tester card is blue, square-ish and says who becomes a tester", async 
   await page.goto("/");
   const card = page.locator('[data-card="tester"]');
   await expect(card).toContainText("Early tester program");
-  await expect(card).toContainText(/spots left|All spots claimed/);
+  await expect(card).not.toContainText(/spots left|\d+ people/);
   // Sits between the headline and the form.
   const h1 = (await page.locator("h1").boundingBox())!;
   const box = (await card.boundingBox())!;

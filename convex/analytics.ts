@@ -2,8 +2,10 @@ import { internal } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin";
 import { limiter } from "./rateLimits";
+import { bump } from "./counters";
 
 /**
  * First-party traffic analytics. The landing page fires `track` on every
@@ -12,9 +14,15 @@ import { limiter } from "./rateLimits";
  * aggregates in the same transaction, so the admin charts are index range
  * reads over tiny aggregate docs — never scans of the raw table.
  *
- * Privacy: no cookies, no IP (mutations can't see it anyway), no full
- * user-agent — the client sends a coarse device class and a referrer reduced
- * to its domain. Raw rows are pruned after PRUNE_KEEP_DAYS by the daily cron.
+ * Privacy: no IP (mutations can't see it anyway), no full user-agent — the
+ * client sends a coarse device class, a referrer reduced to its domain, and
+ * the device cookie's random id (lib/device-cookie.ts), which is never sent
+ * when the browser carries an opt-out signal. Raw rows are pruned after
+ * PRUNE_KEEP_DAYS by the daily cron.
+ *
+ * Devices: each valid id gets one `devices` row. Distinct devices over a
+ * window are a range read on its lastSeen index, because daily uniques do not
+ * add up (a device seen on five days would count five times).
  */
 
 const MAX_FIELD = 200;
@@ -28,7 +36,27 @@ export type Dimension =
   | "utm"
   | "device"
   | "signup"
-  | "signup_utm";
+  | "signup_utm"
+  | "views_identified"
+  | "device_active"
+  | "device_new";
+
+/** Same shape lib/device-cookie.ts mints. Anything else is "invalid". */
+export const DEVICE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** ms at 00:00 UTC of the first day of a `days`-long window ending today. */
+export function windowStart(days: number): number {
+  const startDay = utcDay(Date.now() - (days - 1) * DAY_MS);
+  return Date.parse(`${startDay}T00:00:00Z`);
+}
+
+/** Days arg clamped to the 1..90 the raw tables can answer. */
+export function clampDays(days: number): number {
+  return Math.min(Math.max(Math.floor(days), 1), 90);
+}
 
 /** "YYYY-MM-DD" in UTC for a ms timestamp. */
 export function utcDay(ts: number): string {
@@ -75,6 +103,8 @@ export const track = mutation({
       v.literal("tablet"),
       v.literal("desktop"),
     ),
+    deviceId: v.optional(v.string()),
+    optout: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const path = args.path.trim().slice(0, MAX_FIELD);
@@ -94,6 +124,15 @@ export const track = mutation({
     const day = utcDay(ts);
     const referrerDomain = clean(args.referrerDomain);
     const utmSource = clean(args.utmSource);
+    const rawId = args.deviceId?.trim().toLowerCase().slice(0, 64);
+    const idState = args.optout
+      ? ("optout" as const)
+      : !rawId
+        ? ("none" as const)
+        : DEVICE_ID_RE.test(rawId)
+          ? ("ok" as const)
+          : ("invalid" as const);
+    const deviceId = idState === "ok" ? rawId : undefined;
 
     await ctx.db.insert("pageviews", {
       ts,
@@ -104,7 +143,20 @@ export const track = mutation({
       referrerDomain,
       utmSource,
       device: args.device,
+      deviceId,
+      idState,
     });
+
+    if (deviceId) {
+      await seeDevice(ctx, deviceId, ts, day, {
+        newSession: args.newSession,
+        deviceClass: args.device,
+        path,
+        referrerDomain,
+        utmSource,
+      });
+      await bumpDaily(ctx, day, "views_identified", "");
+    }
 
     await bumpDaily(ctx, day, "views", "");
     await bumpDaily(ctx, day, "path", path);
@@ -119,6 +171,53 @@ export const track = mutation({
     return { ok: true as const };
   },
 });
+
+/** Create or update the device's row; bump the per-day device dims. */
+async function seeDevice(
+  ctx: MutationCtx,
+  deviceId: string,
+  ts: number,
+  day: string,
+  view: {
+    newSession: boolean;
+    deviceClass: string;
+    path: string;
+    referrerDomain?: string;
+    utmSource?: string;
+  },
+) {
+  const device = await ctx.db
+    .query("devices")
+    .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+    .unique();
+  if (!device) {
+    await ctx.db.insert("devices", {
+      deviceId,
+      firstSeen: ts,
+      lastSeen: ts,
+      daysSeen: 1,
+      views: 1,
+      sessions: view.newSession ? 1 : 0,
+      deviceClass: view.deviceClass,
+      firstPath: view.path,
+      firstReferrer: view.referrerDomain,
+      firstUtm: view.utmSource,
+    });
+    await bump(ctx, "devices:total", 1);
+    await bumpDaily(ctx, day, "device_active", "");
+    await bumpDaily(ctx, day, "device_new", "");
+    return;
+  }
+  const firstViewToday = utcDay(device.lastSeen) !== day;
+  await ctx.db.patch(device._id, {
+    lastSeen: ts,
+    daysSeen: device.daysSeen + (firstViewToday ? 1 : 0),
+    views: device.views + 1,
+    sessions: device.sessions + (view.newSession ? 1 : 0),
+    deviceClass: view.deviceClass,
+  });
+  if (firstViewToday) await bumpDaily(ctx, day, "device_active", "");
+}
 
 /** Zero-filled list of the last `days` UTC day strings, oldest first. */
 function lastDays(days: number): string[] {
@@ -142,25 +241,125 @@ async function sumByDay(ctx: QueryCtx, dimension: Dimension, startDay: string) {
   return byDay;
 }
 
-/** ADMIN — per-day views/sessions/signups for the time-series chart. */
+/** ADMIN — per-day views/sessions/signups/devices for the time-series charts. */
 export const series = query({
   args: { days: v.number() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const days = Math.min(Math.max(Math.floor(args.days), 1), 90);
+    const days = clampDays(args.days);
     const dayList = lastDays(days);
     const startDay = dayList[0];
-    const [views, sessions, signups] = await Promise.all([
+    const [views, sessions, signups, identified, active, fresh] = await Promise.all([
       sumByDay(ctx, "views", startDay),
       sumByDay(ctx, "sessions", startDay),
       sumByDay(ctx, "signup", startDay),
+      sumByDay(ctx, "views_identified", startDay),
+      sumByDay(ctx, "device_active", startDay),
+      sumByDay(ctx, "device_new", startDay),
     ]);
     return dayList.map((day) => ({
       day,
       views: views.get(day) ?? 0,
       sessions: sessions.get(day) ?? 0,
       signups: signups.get(day) ?? 0,
+      identifiedViews: identified.get(day) ?? 0,
+      devices: active.get(day) ?? 0,
+      newDevices: fresh.get(day) ?? 0,
     }));
+  },
+});
+
+/** Cap on device rows one stats read touches; past it the count says "N+". */
+const DEVICE_SCAN_CAP = 10_000;
+
+/**
+ * ADMIN — distinct devices over the window: how many viewed the site, how
+ * many were first seen in it, how many have come back on another day, and
+ * how many signed up.
+ */
+export const deviceStats = query({
+  args: { days: v.number() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const start = windowStart(clampDays(args.days));
+    const active = await ctx.db
+      .query("devices")
+      .withIndex("by_lastSeen", (q) => q.gte("lastSeen", start))
+      .take(DEVICE_SCAN_CAP + 1);
+    const capped = active.length > DEVICE_SCAN_CAP;
+    const rows = capped ? active.slice(0, DEVICE_SCAN_CAP) : active;
+    let fresh = 0;
+    let returning = 0;
+    let signedUp = 0;
+    for (const d of rows) {
+      if (d.firstSeen >= start) fresh++;
+      if (d.daysSeen >= 2) returning++;
+      if ((d.signups ?? 0) > 0) signedUp++;
+    }
+    return { unique: rows.length, fresh, returning, signedUp, capped };
+  },
+});
+
+/** ADMIN — devices, most recently seen first, for the paged table. */
+export const devices = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db
+      .query("devices")
+      .withIndex("by_lastSeen")
+      .order("desc")
+      .paginate(args.paginationOpts);
+  },
+});
+
+/** ADMIN — how many devices have ever been seen (the table's page count). */
+export const deviceTotal = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const row = await ctx.db
+      .query("counters")
+      .withIndex("by_key", (q) => q.eq("key", "devices:total"))
+      .unique();
+    return row?.value ?? 0;
+  },
+});
+
+/** A signup older than this is not linked: the cookie may no longer be theirs. */
+const LINK_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * PUBLIC — called by /api/waitlist right after a new signup with the device
+ * cookie it arrived with. Ties the tester row to its device so the admin can
+ * see which devices signed up and spot one device signing up many emails.
+ * Best effort: anything that does not line up is dropped without an error.
+ */
+export const linkSignup = mutation({
+  args: { deviceId: v.string(), email: v.string() },
+  handler: async (ctx, args) => {
+    const deviceId = args.deviceId.trim().toLowerCase();
+    const email = args.email.trim().toLowerCase().slice(0, 254);
+    if (!DEVICE_ID_RE.test(deviceId) || !email) return { ok: false as const };
+
+    const limit = await limiter.limit(ctx, "linkSignup");
+    if (!limit.ok) return { ok: false as const };
+
+    const tester = await ctx.db
+      .query("testers")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    if (!tester || tester.deviceId || Date.now() - tester.createdAt > LINK_WINDOW_MS) {
+      return { ok: false as const };
+    }
+    await ctx.db.patch(tester._id, { deviceId });
+
+    const device = await ctx.db
+      .query("devices")
+      .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+      .unique();
+    if (device) await ctx.db.patch(device._id, { signups: (device.signups ?? 0) + 1 });
+    return { ok: true as const };
   },
 });
 
@@ -179,7 +378,7 @@ export const top = query({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const days = Math.min(Math.max(Math.floor(args.days), 1), 90);
+    const days = clampDays(args.days);
     const startDay = lastDays(days)[0];
     const rows = await ctx.db
       .query("trafficDaily")
