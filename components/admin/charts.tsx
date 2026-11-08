@@ -32,6 +32,9 @@ export type SeriesPoint = {
   views: number;
   sessions: number;
   signups: number;
+  identifiedViews: number;
+  devices: number; // distinct devices that viewed that day
+  newDevices: number; // of those, first seen that day
 };
 
 const VIEWS = "var(--viz-views)";
@@ -314,7 +317,111 @@ export function Sparkline({ data, dataKey, color }: { data: SeriesPoint[]; dataK
   );
 }
 
-export const SERIES_COLOR = { views: VIEWS, sessions: SESSIONS, signups: SIGNUPS } as const;
+export const SERIES_COLOR = { views: VIEWS, sessions: SESSIONS, signups: SIGNUPS, devices: VIEWS, newDevices: SESSIONS } as const;
+
+/** Distinct devices per day, stacked: returning (seen before that day) under new. */
+export function DevicesChart({ data }: { data: SeriesPoint[] }) {
+  const reduced = useReducedMotion();
+  const rows = useMemo(() => data.map((d) => ({ ...d, returningDevices: Math.max(0, d.devices - d.newDevices) })), [data]);
+  const totals = useMemo(
+    () => rows.reduce((a, d) => ({ fresh: a.fresh + d.newDevices, back: a.back + d.returningDevices }), { fresh: 0, back: 0 }),
+    [rows],
+  );
+
+  const renderTooltip = ({ active, payload, label }: TipProps) => {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload as (typeof rows)[number];
+    return (
+      <TooltipCard
+        title={fmtDay(String(label), true)}
+        rows={[
+          { name: "New", color: SESSIONS, value: p.newDevices },
+          { name: "Returning", color: VIEWS, value: p.returningDevices },
+        ]}
+      />
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <Key color={SESSIONS} label="New" value={totals.fresh} />
+        <Key color={VIEWS} label="Returning" value={totals.back} />
+      </div>
+      <div className="mt-4 h-[220px]" role="img" aria-label="Distinct devices per day, new and returning">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} barCategoryGap="22%">
+            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="day" tickFormatter={(d: string) => fmtDay(d)} tick={AXIS_TICK} tickLine={false} axisLine={false} minTickGap={28} tickMargin={10} />
+            <YAxis allowDecimals={false} tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} />
+            <Tooltip content={renderTooltip} cursor={{ fill: "var(--accent)", opacity: 0.5 }} isAnimationActive={false} />
+            <Bar dataKey="returningDevices" name="Returning" stackId="d" fill={VIEWS} maxBarSize={22} isAnimationActive={!reduced} animationDuration={700} animationEasing="ease-out" />
+            <Bar dataKey="newDevices" name="New" stackId="d" fill={SESSIONS} radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={!reduced} animationDuration={700} animationEasing="ease-out" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+export type EvalTrendPoint = { _id: string; createdAt: number; passed: number; warned: number; failed: number };
+
+const PASS = "var(--viz-signups)";
+const WARN = "var(--warn)";
+const FAIL = "var(--destructive)";
+
+/** Checks passed, warned and failed per run, oldest run on the left. */
+export function EvalTrendChart({ data }: { data: EvalTrendPoint[] }) {
+  const reduced = useReducedMotion();
+  const label = (ts: number) =>
+    new Date(ts).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const renderTooltip = ({ active, payload }: TipProps) => {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload as EvalTrendPoint;
+    return (
+      <TooltipCard
+        title={label(p.createdAt)}
+        rows={[
+          { name: "Passed", color: PASS, value: p.passed },
+          { name: "Warned", color: WARN, value: p.warned },
+          { name: "Failed", color: FAIL, value: p.failed },
+        ]}
+      />
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <Key color={PASS} label="Passed" />
+        <Key color={WARN} label="Warned" />
+        <Key color={FAIL} label="Failed" />
+      </div>
+      <div className="mt-4 h-[180px]" role="img" aria-label="Checks passed, warned and failed per run">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} barCategoryGap="22%">
+            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <XAxis
+              dataKey="createdAt"
+              tickFormatter={(ts: number) => new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              tick={AXIS_TICK}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={28}
+              tickMargin={10}
+            />
+            <YAxis allowDecimals={false} tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} />
+            <Tooltip content={renderTooltip} cursor={{ fill: "var(--accent)", opacity: 0.5 }} isAnimationActive={false} />
+            <Bar dataKey="passed" stackId="e" fill={PASS} maxBarSize={22} isAnimationActive={!reduced} animationDuration={700} />
+            <Bar dataKey="warned" stackId="e" fill={WARN} maxBarSize={22} isAnimationActive={!reduced} animationDuration={700} />
+            <Bar dataKey="failed" stackId="e" fill={FAIL} radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={!reduced} animationDuration={700} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
 /** Ranked horizontal bars: one hue, value at the row end, bars grow in once. */
 export function RankList({

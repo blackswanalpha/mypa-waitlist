@@ -1,5 +1,6 @@
 /**
- * First-party, cookie-free attribution capture.
+ * First-party attribution capture (localStorage and sessionStorage only; the
+ * one cookie, the device id, is lib/device-cookie.ts).
  *
  * - First-touch acquisition data (UTM params, click ids, referrer domain,
  *   landing path) is stored once in localStorage with a 30-day TTL — later
@@ -8,7 +9,7 @@
  * - The `?ref=` referral code is the exception: last touch wins, so the most
  *   recent share link gets the credit.
  * - The analytics session id lives in sessionStorage (per-tab, gone on
- *   close). No cookies, no IP, no full user-agent ever leaves the browser.
+ *   close). No IP and no full user-agent ever leaves the browser.
  */
 
 const ATTRIBUTION_KEY = "mypa.attribution.v1";

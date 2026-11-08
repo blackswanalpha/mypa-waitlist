@@ -14,6 +14,10 @@
 @source "../components/ui";
 
 @custom-variant dark (&:is(.dark *));
+/* Short windows (laptops at 125-150% zoom, small phones): the landing page
+   compacts so the whole form, button included, fits on one screen. */
+@custom-variant short (@media (max-height: 800px));
+@custom-variant shorter (@media (max-height: 640px));
 
 :root {
   /* Light — pure white paper, slate ink. Sage is an accent, not a surface. */

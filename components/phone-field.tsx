@@ -176,7 +176,7 @@ export function PhoneField({
         <div
           data-open={open || undefined}
           className={cn(
-            "flex h-12 w-full min-w-0 items-center rounded-[8px] border bg-background",
+            "flex h-11 w-full min-w-0 items-center rounded-[8px] border bg-background",
             "transition-[border-color,box-shadow] duration-200 ease-out",
             "focus-within:border-foreground/60 focus-within:ring-4 focus-within:ring-secondary",
             "data-open:border-foreground/60 data-open:ring-4 data-open:ring-secondary",

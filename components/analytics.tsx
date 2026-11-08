@@ -10,11 +10,16 @@ import {
   getDeviceClass,
   getSession,
 } from "@/lib/attribution";
+import { hasOptOutSignal, readDeviceCookie } from "@/lib/device-cookie";
 
 /**
  * First-party page-view beacon. Renders nothing; fires api.analytics.track on
  * every route change over the Convex client that's already connected. Fire
  * and forget — analytics must never surface an error or block the UI.
+ *
+ * The device id comes from the cookie the middleware set on this page load.
+ * When the browser refused it, no id is sent and the view counts as
+ * unidentified; a fresh id per view would count one visitor many times.
  */
 export function Analytics() {
   const convex = useConvex();
@@ -27,6 +32,7 @@ export function Analytics() {
     captureAttribution();
     const { sessionId, newSession } = getSession();
     const attribution = getAttribution();
+    const optout = hasOptOutSignal();
 
     convex
       .mutation(api.analytics.track, {
@@ -37,6 +43,8 @@ export function Analytics() {
         referrerDomain: newSession ? attribution.referrerDomain : undefined,
         utmSource: newSession ? attribution.utmSource : undefined,
         device: getDeviceClass(),
+        deviceId: optout ? undefined : readDeviceCookie(),
+        optout: optout || undefined,
       })
       .catch(() => {});
   }, [convex, pathname]);

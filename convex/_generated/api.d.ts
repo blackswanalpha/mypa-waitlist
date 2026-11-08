@@ -18,6 +18,7 @@ import type * as emails_events from "../emails/events.js";
 import type * as emails_send from "../emails/send.js";
 import type * as emails_templates from "../emails/templates.js";
 import type * as emails_testerTemplates from "../emails/testerTemplates.js";
+import type * as evals from "../evals.js";
 import type * as http from "../http.js";
 import type * as rateLimits from "../rateLimits.js";
 import type * as sync from "../sync.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "emails/send": typeof emails_send;
   "emails/templates": typeof emails_templates;
   "emails/testerTemplates": typeof emails_testerTemplates;
+  evals: typeof evals;
   http: typeof http;
   rateLimits: typeof rateLimits;
   sync: typeof sync;

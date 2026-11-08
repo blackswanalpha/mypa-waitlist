@@ -12,4 +12,12 @@ crons.daily(
   { keepDays: 90 },
 );
 
+// Tracking-quality checks over the last 7 days, kept as history (evals.ts).
+crons.daily(
+  "tracking evals",
+  { hourUTC: 3, minuteUTC: 41 },
+  internal.evals.scheduled,
+  { days: 7 },
+);
+
 export default crons;

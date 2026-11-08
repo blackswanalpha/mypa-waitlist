@@ -166,7 +166,7 @@ export function WaitlistForm({
   };
   const fieldClass = (bad: boolean) =>
     cn(
-      "h-12 w-full min-w-0 rounded-[8px] border bg-background px-4 text-[15px] text-foreground outline-none placeholder:text-muted-foreground",
+      "h-11 w-full min-w-0 rounded-[8px] border bg-background px-4 text-[15px] text-foreground outline-none placeholder:text-muted-foreground",
       "transition-[border-color,box-shadow] duration-200 ease-out focus:border-foreground/60 focus:ring-4 focus:ring-secondary",
       bad ? "border-destructive/60" : "border-input hover:border-foreground/30",
     );
@@ -183,7 +183,7 @@ export function WaitlistForm({
       aria-label="Join the MyPA waitlist"
     >
       <fieldset className="mb-2">
-        <legend className="mb-2 flex w-full items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+        <legend className="mb-2 flex w-full short:mb-1.5 items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
           <Smartphone className="h-3.5 w-3.5" aria-hidden />
           Which phone will you test on?
         </legend>
@@ -209,7 +209,7 @@ export function WaitlistForm({
                   onMood?.("listen");
                 }}
                 className={cn(
-                  "inline-flex h-12 items-center justify-center gap-1.5 rounded-[6px] border px-2 text-[13px] transition-[border-color,background-color,color] duration-150 ease-out",
+                  "inline-flex h-11 items-center justify-center gap-1.5 rounded-[6px] border px-2 text-[13px] transition-[border-color,background-color,color] duration-150 ease-out",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
                   on
                     ? "border-black bg-black/[0.04] font-medium text-foreground"
@@ -314,7 +314,7 @@ export function WaitlistForm({
         <input id="website" type="text" tabIndex={-1} autoComplete="off" {...form.register("website")} />
       </div>
 
-      <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <label
           htmlFor="agreed"
           className="flex min-h-11 cursor-pointer items-center gap-2.5 text-left text-[13px] leading-snug text-foreground"
@@ -333,7 +333,7 @@ export function WaitlistForm({
           type="submit"
           disabled={submitting}
           className={cn(
-            "group inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-black px-6 text-sm font-medium text-white",
+            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-black px-6 text-sm font-medium text-white",
             "transition-transform duration-200 ease-out active:scale-[0.97]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black disabled:cursor-progress",
           )}

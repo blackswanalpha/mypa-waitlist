@@ -17,8 +17,8 @@ export function Hero({ program }: { program: Program }) {
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
-      {/* Smaller on phones so the whole form, button included, fits one screen. */}
-      <div className="max-sm:-my-3 max-sm:scale-[0.8] [@media(max-width:639px)_and_(max-height:800px)]:-my-7 [@media(max-width:639px)_and_(max-height:800px)]:scale-[0.6]">
+      {/* Smaller on phones and short windows so the whole form, button included, fits one screen. */}
+      <div className="max-sm:-my-3 max-sm:scale-[0.8] short:-my-8 short:scale-[0.6] shorter:-my-11 shorter:scale-[0.45]">
         <GlanceBot mood={mood} />
       </div>
 
@@ -29,13 +29,13 @@ export function Hero({ program }: { program: Program }) {
         Your day, spoken into order<span className="text-fern">.</span>
       </h1>
 
-      <div className="animate-rise mt-4 w-full max-w-xl sm:mt-6" style={{ animationDelay: "220ms" }}>
+      <div className="animate-rise mt-4 w-full max-w-xl sm:mt-6 short:mt-3" style={{ animationDelay: "220ms" }}>
         {closed ? (
           <ClosedCard slots={program.slots} socials={program.socials} />
         ) : (
           <>
-            <TesterCard slots={program.slots} spotsLeft={program.spotsLeft} />
-            <div className="mt-5">
+            <TesterCard spotsLeft={program.spotsLeft} />
+            <div className="mt-4 short:mt-3">
               <WaitlistForm onMood={setMood} onClosed={() => setClosed(true)} />
             </div>
           </>

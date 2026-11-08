@@ -18,6 +18,11 @@ const VIEWPORTS: [number, number][] = [
   [820, 1180],
   [1024, 768],
   [1440, 900],
+  // Laptops at 125-150% zoom and short phones: the window the form must still fit.
+  [1280, 600],
+  [1366, 625],
+  [1536, 730],
+  [360, 640],
 ];
 
 const REMOVED = [
@@ -229,12 +234,20 @@ for (const [w, h] of VIEWPORTS) {
     });
 
     test("the join button is on screen without scrolling", async ({ page }) => {
-      // 320x640 is the one size too short to hold the whole form.
-      test.skip(w < 360 || h < 720, "smaller than any phone or laptop we design for");
+      // 320 wide is narrower than any phone we design for.
+      test.skip(w < 360, "narrower than any phone we design for");
       await home(page);
-      const button = (await page.locator(`${FORM} button[type=submit]`).boundingBox())!;
+      const submit = page.locator(`${FORM} button[type=submit]`);
+      const button = (await submit.boundingBox())!;
       expect(await page.evaluate(() => window.scrollY)).toBe(0);
       expect(button.y + button.height).toBeLessThanOrEqual(h);
+      // Nothing sits on top of it.
+      const hit = await submit.evaluate((b) => {
+        const r = b.getBoundingClientRect();
+        const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!el && b.contains(el);
+      });
+      expect(hit).toBe(true);
     });
 
     test("the header icon is the lime puzzle and the page holds no second copy", async ({ page }) => {
@@ -258,6 +271,18 @@ for (const [w, h] of VIEWPORTS) {
     });
   });
 }
+
+test("the footer's contact sits on the right and the copyright is centred", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  const footer = page.locator("footer");
+  const mail = (await footer.locator('a[href^="mailto:"]').boundingBox())!;
+  const hello = (await footer.getByText("Say hello").boundingBox())!;
+  const copy = (await footer.getByText(/All rights reserved/).boundingBox())!;
+  expect(mail.x + mail.width).toBeGreaterThan(1280 * 0.85);
+  expect(Math.abs(hello.x + hello.width - (mail.x + mail.width))).toBeLessThan(2);
+  expect(Math.abs(copy.x + copy.width / 2 - 640)).toBeLessThan(4);
+});
 
 test("the contact page is gone", async ({ page }) => {
   const res = await page.goto("/contact");
