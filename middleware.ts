@@ -8,9 +8,9 @@ import { applyDeviceCookie } from "@/lib/device-cookie";
  * page renders its own login form when unauthenticated, and the real access
  * boundary is `requireAdmin` (server-side, on every admin query/mutation).
  *
- * The handler mints or renews the device cookie on page loads
- * (lib/device-cookie.ts). Convex Auth ports its own cookies onto the response
- * it returns.
+ * The handler clears a device cookie the visitor has not consented to
+ * (lib/device-cookie.ts); it never sets one. Convex Auth ports its own
+ * cookies onto the response it returns.
  */
 export default convexAuthNextjsMiddleware(
   (request) => applyDeviceCookie(request, NextResponse.next({ request: { headers: request.headers } })),

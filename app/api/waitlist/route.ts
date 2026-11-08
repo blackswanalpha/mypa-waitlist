@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api";
-import { DEVICE_COOKIE, isDeviceId } from "@/lib/device-cookie";
+import { DEVICE_COOKIE, isDeviceId, sendsOptOut } from "@/lib/device-cookie";
+import { CONSENT_COOKIE, parseConsent } from "@/lib/consent";
 
 /**
  * Tester-list signup. The row is written to this site's Convex `testers`
@@ -129,12 +130,14 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Tie the new tester row to the device cookie it arrived with. A separate
+ * Tie the new tester row to the device cookie it arrived with, only when the
+ * visitor accepted the cookie. A separate
  * call rather than an apply argument, so a frontend deployed ahead of Convex
  * cannot break signups. Logged on failure, never thrown.
  */
 async function linkDevice(client: ConvexHttpClient, req: NextRequest, email: string) {
-  if (req.headers.get("sec-gpc") === "1" || req.headers.get("dnt") === "1") return;
+  if (sendsOptOut(req.headers)) return;
+  if (parseConsent(req.cookies.get(CONSENT_COOKIE)?.value)?.choice !== "granted") return;
   const deviceId = req.cookies.get(DEVICE_COOKIE)?.value;
   if (!isDeviceId(deviceId)) return;
   try {

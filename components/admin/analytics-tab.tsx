@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Metric, Panel, PanelHeader, Segmented } from "@/components/admin/kit";
 import { RankList, SERIES_COLOR, SignupsChart, Sparkline, TrafficChart } from "@/components/admin/charts";
 import { SeoHealthCard } from "@/components/admin/seo-health-card";
-import { DeviceMetrics, DevicesChartPanel, DevicesTable } from "@/components/admin/devices-section";
+import { ConsentPanel, DeviceMetrics, DevicesChartPanel, DevicesTable } from "@/components/admin/devices-section";
 
 const RANGES = [
   { value: "7", label: "7 days" },
@@ -112,6 +112,8 @@ export function AnalyticsTab() {
       <DevicesChartPanel series={series} />
 
       <DevicesTable />
+
+      <ConsentPanel series={series} />
 
       <Panel className="pb-5">
         <PanelHeader title="Traffic" description="Page views and unique sessions per day." />

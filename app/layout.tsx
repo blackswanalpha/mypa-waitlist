@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif, IBM_Plex_Mono, DM_Sans } from "next/font/google";
+import { cookies, headers } from "next/headers";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { CookieCard } from "@/components/cookie-card";
+import { CONSENT_COOKIE, parseConsent } from "@/lib/consent";
+import { sendsOptOut } from "@/lib/device-cookie";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -91,9 +95,14 @@ const ORG_JSONLD = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Read on the server so the cookie card is in the first HTML when it is
+  // needed, and never pops in after the page has painted.
+  const consent = parseConsent((await cookies()).get(CONSENT_COOKIE)?.value);
+  const optout = sendsOptOut(await headers());
+
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang="en" className="scroll-smooth" suppressHydrationWarning>
@@ -105,6 +114,7 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSONLD) }}
           />
           <Providers>{children}</Providers>
+          <CookieCard initial={consent} gpc={optout} />
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>

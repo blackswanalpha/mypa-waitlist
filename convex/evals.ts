@@ -6,9 +6,10 @@ import { requireAdmin } from "./admin";
 import { clampDays, utcDay, windowStart } from "./analytics";
 
 /**
- * Evals: checks that the device tracking is telling the truth. Each run reads
- * the most recent page views in the window, the device rows and the signups,
- * grades eight checks against fixed targets and stores the result in
+ * Evals: checks that the device tracking is telling the truth and keeps to
+ * the visitor's cookie choice. Each run reads the most recent page views in
+ * the window, the device rows, the consent log and the signups, grades ten
+ * checks against fixed targets and stores the result in
  * `evalRuns`, so the admin sees today's verdict and how it has moved. The
  * daily cron runs the 7-day window; the admin can run any window by hand.
  *
@@ -20,6 +21,7 @@ import { clampDays, utcDay, windowStart } from "./analytics";
 const SAMPLE_CAP = 5_000;
 const DEVICE_CAP = 10_000;
 const SIGNUP_CAP = 5_000;
+const CONSENT_CAP = 10_000;
 
 type Status = "pass" | "warn" | "fail" | "info" | "skip";
 type Check = {
@@ -55,31 +57,50 @@ async function runChecks(ctx: MutationCtx, days: number) {
   const views = sampled ? recent.slice(0, SAMPLE_CAP) : recent;
   // Rows from before the device cookie carry no idState; they are not graded.
   const tracked = views.filter((r) => r.idState !== undefined);
-  const counted = tracked.filter((r) => r.idState !== "optout");
+  // Only views whose visitor accepted the cookie are expected to carry an id.
+  const counted = tracked.filter((r) => r.idState === "ok" || r.idState === "none" || r.idState === "invalid");
   const ok = counted.filter((r) => r.idState === "ok").length;
   const none = counted.filter((r) => r.idState === "none").length;
   const invalid = counted.filter((r) => r.idState === "invalid").length;
-  const optout = tracked.length - counted.length;
+  const optout = tracked.filter((r) => r.idState === "optout").length;
+  const declined = tracked.filter((r) => r.idState === "declined").length;
+  const pending = tracked.filter((r) => r.idState === "pending").length;
+  const leaked = views.filter((r) => r.idWithoutConsent).length;
 
-  // 1. Coverage — views that carried a device id.
+  // 0. Consent kept — no device id is ever accepted without a granted consent.
+  checks.push({
+    key: "consentKept",
+    label: "No device id without consent",
+    status: tracked.length === 0 ? "skip" : leaked === 0 ? "pass" : "fail",
+    value: tracked.length === 0 ? "—" : `${n(leaked)} view${leaked === 1 ? "" : "s"}`,
+    target: "0 views",
+    detail:
+      tracked.length === 0
+        ? "No tracked page views in this window yet."
+        : leaked === 0
+          ? `None of ${n(tracked.length)} views sent a device id before the visitor accepted. The middleware clears unconsented ids and the server drops any that slip through.`
+          : `${n(leaked)} views sent a device id without consent. The server dropped them, but the page or the middleware let a cookie live that should have been cleared.`,
+  });
+
+  // 1. Coverage — views from accepting visitors that carried a device id.
   if (counted.length === 0) {
     checks.push({
       key: "coverage",
-      label: "Views carry a device id",
+      label: "Accepted views carry a device id",
       status: "skip",
       value: "—",
       target: "≥ 90%",
-      detail: "No tracked page views in this window yet.",
+      detail: "No views from visitors who accepted the cookie in this window yet.",
     });
   } else {
     const p = pct(ok, counted.length);
     checks.push({
       key: "coverage",
-      label: "Views carry a device id",
+      label: "Accepted views carry a device id",
       status: grade(p, 90, 75),
       value: fmtPct(p),
       target: "≥ 90%",
-      detail: `${n(ok)} of ${n(counted.length)} views had a valid device cookie. ${n(none)} had none (cookies blocked or cleared), ${n(invalid)} a malformed one. Low coverage undercounts devices.`,
+      detail: `${n(ok)} of ${n(counted.length)} views from visitors who accepted had a valid device cookie. ${n(none)} had none (blocked or cleared after accepting), ${n(invalid)} a malformed one. Low coverage undercounts devices.`,
     });
   }
 
@@ -141,17 +162,36 @@ async function runChecks(ctx: MutationCtx, days: number) {
     });
   }
 
-  // 4. Opt-outs — reported, not graded.
+  // 4. Views without a device by choice — reported, not graded.
+  const untracked = optout + declined + pending;
   checks.push({
     key: "optout",
-    label: "Opt-out signals honoured",
+    label: "Views counted without a device",
     status: tracked.length === 0 ? "skip" : "info",
-    value: tracked.length === 0 ? "—" : fmtPct(pct(optout, tracked.length)),
+    value: tracked.length === 0 ? "—" : fmtPct(pct(untracked, tracked.length)),
     target: "Reported only",
     detail:
       tracked.length === 0
         ? "No tracked page views in this window yet."
-        : `${n(optout)} of ${n(tracked.length)} views came from browsers sending Global Privacy Control or Do Not Track. They count as views and never as devices.`,
+        : `Of ${n(tracked.length)} views, ${n(declined)} declined the cookie, ${n(pending)} never chose, and ${n(optout)} came from browsers sending Global Privacy Control or Do Not Track. They count as views and never as devices.`,
+  });
+
+  // 4b. Acceptance — of the visitors who chose, how many accepted.
+  const choices = await ctx.db
+    .query("consents")
+    .withIndex("by_ts", (q) => q.gte("ts", start))
+    .take(CONSENT_CAP);
+  const accepts = choices.filter((c) => c.choice === "granted").length;
+  checks.push({
+    key: "acceptance",
+    label: "Cookie acceptance",
+    status: choices.length === 0 ? "skip" : "info",
+    value: choices.length === 0 ? "—" : fmtPct(pct(accepts, choices.length)),
+    target: "Reported only",
+    detail:
+      choices.length === 0
+        ? "No one has made a cookie choice in this window yet."
+        : `${n(accepts)} of ${n(choices.length)} choices were Accept. Device counts cover only those visitors, so read them as a sample.`,
   });
 
   // 5. Returning devices — zero returns on real traffic means cookies are not lasting.
@@ -238,7 +278,7 @@ async function runChecks(ctx: MutationCtx, days: number) {
       label: "Signups linked to a device",
       status: "skip",
       value: "—",
-      target: "≥ 90%",
+      target: "Reported only",
       detail: "No signups since device tracking started in this window.",
     });
   } else {
@@ -246,10 +286,10 @@ async function runChecks(ctx: MutationCtx, days: number) {
     checks.push({
       key: "signupLink",
       label: "Signups linked to a device",
-      status: grade(p, 90, 70),
+      status: "info",
       value: fmtPct(p),
-      target: "≥ 90%",
-      detail: `${n(linked)} of ${n(signups.length)} signups since tracking began carry the device they signed up from. Opt-outs and blocked cookies are the expected gap.`,
+      target: "Reported only",
+      detail: `${n(linked)} of ${n(signups.length)} signups since tracking began carry the device they signed up from. Only visitors who accepted the cookie can be linked, so this follows the acceptance rate.`,
     });
   }
 

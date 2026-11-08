@@ -1,3 +1,5 @@
+import { CookieSettingsButton } from "@/components/cookie-card";
+
 export const CONTACT_EMAIL = "myexecpersonalassistant@gmail.com";
 
 export function Footer() {
@@ -18,9 +20,10 @@ export function Footer() {
           </a>
         </div>
 
-        <p className="mt-12 border-t border-border/70 py-6 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} MyPA. All rights reserved.
-        </p>
+        <div className="mt-12 flex flex-col items-center border-t border-border/70 pt-4 pb-3 text-xs text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} MyPA. All rights reserved.</p>
+          <CookieSettingsButton />
+        </div>
       </div>
     </footer>
   );

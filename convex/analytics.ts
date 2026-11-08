@@ -15,10 +15,10 @@ import { bump } from "./counters";
  * reads over tiny aggregate docs — never scans of the raw table.
  *
  * Privacy: no IP (mutations can't see it anyway), no full user-agent — the
- * client sends a coarse device class, a referrer reduced to its domain, and
- * the device cookie's random id (lib/device-cookie.ts), which is never sent
- * when the browser carries an opt-out signal. Raw rows are pruned after
- * PRUNE_KEEP_DAYS by the daily cron.
+ * client sends a coarse device class, a referrer reduced to its domain, and,
+ * only with the visitor's cookie consent (lib/consent.ts), the device
+ * cookie's random id. An id sent without consent is dropped here. Raw rows
+ * are pruned after PRUNE_KEEP_DAYS by the daily cron.
  *
  * Devices: each valid id gets one `devices` row. Distinct devices over a
  * window are a range read on its lastSeen index, because daily uniques do not
@@ -39,7 +39,9 @@ export type Dimension =
   | "signup_utm"
   | "views_identified"
   | "device_active"
-  | "device_new";
+  | "device_new"
+  | "consent_granted"
+  | "consent_denied";
 
 /** Same shape lib/device-cookie.ts mints. Anything else is "invalid". */
 export const DEVICE_ID_RE =
@@ -105,6 +107,11 @@ export const track = mutation({
     ),
     deviceId: v.optional(v.string()),
     optout: v.optional(v.boolean()),
+    // The visitor's cookie choice. Absent only from pages built before the
+    // consent card, which never get an id kept.
+    consent: v.optional(
+      v.union(v.literal("granted"), v.literal("denied"), v.literal("pending")),
+    ),
   },
   handler: async (ctx, args) => {
     const path = args.path.trim().slice(0, MAX_FIELD);
@@ -125,14 +132,23 @@ export const track = mutation({
     const referrerDomain = clean(args.referrerDomain);
     const utmSource = clean(args.utmSource);
     const rawId = args.deviceId?.trim().toLowerCase().slice(0, 64);
+    const granted = args.consent === "granted" && !args.optout;
     const idState = args.optout
       ? ("optout" as const)
-      : !rawId
-        ? ("none" as const)
-        : DEVICE_ID_RE.test(rawId)
-          ? ("ok" as const)
-          : ("invalid" as const);
+      : args.consent === "denied"
+        ? ("declined" as const)
+        : !granted
+          ? ("pending" as const)
+          : !rawId
+            ? ("none" as const)
+            : DEVICE_ID_RE.test(rawId)
+              ? ("ok" as const)
+              : ("invalid" as const);
     const deviceId = idState === "ok" ? rawId : undefined;
+    // Only a client that knows about consent can break it; pages built before
+    // the card (consent absent) are dropped without counting.
+    const idWithoutConsent =
+      args.consent !== undefined && !granted && !!rawId ? true : undefined;
 
     await ctx.db.insert("pageviews", {
       ts,
@@ -145,6 +161,7 @@ export const track = mutation({
       device: args.device,
       deviceId,
       idState,
+      idWithoutConsent,
     });
 
     if (deviceId) {
@@ -169,6 +186,77 @@ export const track = mutation({
       if (utmSource) await bumpDaily(ctx, day, "utm", utmSource);
     }
     return { ok: true as const };
+  },
+});
+
+/**
+ * PUBLIC — called by POST /api/consent after it has set the cookies. Logs the
+ * choice, and settles this visit's page views that were waiting on it: on
+ * Accept they become identified views of the new device (so a one-page visit
+ * still counts its device), on Decline they are marked declined.
+ */
+export const recordConsent = mutation({
+  args: {
+    choice: v.union(v.literal("granted"), v.literal("denied")),
+    version: v.number(),
+    deviceId: v.optional(v.string()),
+    sessionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const limit = await limiter.limit(ctx, "consent");
+    if (!limit.ok) return { ok: false as const };
+
+    const ts = Date.now();
+    const day = utcDay(ts);
+    const rawId = args.deviceId?.trim().toLowerCase();
+    const deviceId = rawId && DEVICE_ID_RE.test(rawId) ? rawId : undefined;
+    const sessionId = args.sessionId?.trim().slice(0, 64) || undefined;
+
+    let viewsUpdated = 0;
+    if (sessionId) {
+      const views = await ctx.db
+        .query("pageviews")
+        .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+        .take(100);
+      const waiting = views.filter((v) => v.idState === "pending").sort((a, b) => a.ts - b.ts);
+      for (const view of waiting) {
+        if (args.choice === "granted" && deviceId) {
+          await ctx.db.patch(view._id, { deviceId, idState: "ok" });
+          await seeDevice(ctx, deviceId, view.ts, view.day, {
+            newSession: view.newSession,
+            deviceClass: view.device,
+            path: view.path,
+            referrerDomain: view.referrerDomain,
+            utmSource: view.utmSource,
+          });
+          await bumpDaily(ctx, view.day, "views_identified", "");
+        } else {
+          await ctx.db.patch(view._id, { idState: "declined" });
+        }
+        viewsUpdated++;
+      }
+    }
+
+    await ctx.db.insert("consents", {
+      ts,
+      day,
+      choice: args.choice,
+      version: Math.floor(args.version),
+      deviceId,
+      sessionId,
+      viewsUpdated,
+    });
+    await bumpDaily(ctx, day, args.choice === "granted" ? "consent_granted" : "consent_denied", "");
+    return { ok: true as const, viewsUpdated };
+  },
+});
+
+/** ADMIN — the consent log, newest first, for the paged table. */
+export const consents = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db.query("consents").withIndex("by_ts").order("desc").paginate(args.paginationOpts);
   },
 });
 
@@ -249,13 +337,15 @@ export const series = query({
     const days = clampDays(args.days);
     const dayList = lastDays(days);
     const startDay = dayList[0];
-    const [views, sessions, signups, identified, active, fresh] = await Promise.all([
+    const [views, sessions, signups, identified, active, fresh, granted, denied] = await Promise.all([
       sumByDay(ctx, "views", startDay),
       sumByDay(ctx, "sessions", startDay),
       sumByDay(ctx, "signup", startDay),
       sumByDay(ctx, "views_identified", startDay),
       sumByDay(ctx, "device_active", startDay),
       sumByDay(ctx, "device_new", startDay),
+      sumByDay(ctx, "consent_granted", startDay),
+      sumByDay(ctx, "consent_denied", startDay),
     ]);
     return dayList.map((day) => ({
       day,
@@ -265,6 +355,8 @@ export const series = query({
       identifiedViews: identified.get(day) ?? 0,
       devices: active.get(day) ?? 0,
       newDevices: fresh.get(day) ?? 0,
+      consentGranted: granted.get(day) ?? 0,
+      consentDenied: denied.get(day) ?? 0,
     }));
   },
 });
