@@ -11,15 +11,16 @@ import {
   getSession,
 } from "@/lib/attribution";
 import { hasOptOutSignal, readDeviceCookie } from "@/lib/device-cookie";
+import { readConsent, trackBeacon } from "@/lib/consent";
 
 /**
  * First-party page-view beacon. Renders nothing; fires api.analytics.track on
  * every route change over the Convex client that's already connected. Fire
  * and forget — analytics must never surface an error or block the UI.
  *
- * The device id comes from the cookie the middleware set on this page load.
- * When the browser refused it, no id is sent and the view counts as
- * unidentified; a fresh id per view would count one visitor many times.
+ * Every view counts as a view. Only a visitor who accepted the cookie card
+ * sends a device id; before a choice the view is "pending" and the card's
+ * answer settles it (analytics.recordConsent).
  */
 export function Analytics() {
   const convex = useConvex();
@@ -33,9 +34,10 @@ export function Analytics() {
     const { sessionId, newSession } = getSession();
     const attribution = getAttribution();
     const optout = hasOptOutSignal();
+    const consent = readConsent()?.choice ?? "pending";
 
-    convex
-      .mutation(api.analytics.track, {
+    trackBeacon(
+      convex.mutation(api.analytics.track, {
         sessionId,
         newSession,
         path: pathname,
@@ -43,10 +45,11 @@ export function Analytics() {
         referrerDomain: newSession ? attribution.referrerDomain : undefined,
         utmSource: newSession ? attribution.utmSource : undefined,
         device: getDeviceClass(),
-        deviceId: optout ? undefined : readDeviceCookie(),
+        deviceId: !optout && consent === "granted" ? readDeviceCookie() : undefined,
         optout: optout || undefined,
-      })
-      .catch(() => {});
+        consent,
+      }),
+    );
   }, [convex, pathname]);
 
   return null;

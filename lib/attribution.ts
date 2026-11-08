@@ -126,6 +126,15 @@ export function getSession(): { sessionId: string; newSession: boolean } {
   }
 }
 
+/** This tab's analytics session id, without minting one. */
+export function peekSessionId(): string | undefined {
+  try {
+    return window.sessionStorage.getItem(SESSION_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Coarse device class — the only client-environment signal we collect. */
 export function getDeviceClass(): "mobile" | "tablet" | "desktop" {
   const ua = navigator.userAgent;

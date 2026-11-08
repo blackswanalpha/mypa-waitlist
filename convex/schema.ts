@@ -115,8 +115,11 @@ export default defineSchema({
       v.literal("desktop"),
     ),
     // The device cookie (lib/device-cookie.ts). idState says what the beacon
-    // sent: "ok" a valid id, "none" no cookie, "invalid" a malformed one,
-    // "optout" an opt-out signal. Rows from before the cookie have neither.
+    // sent: "ok" a valid id, "none" no cookie despite consent, "invalid" a
+    // malformed one, "optout" an opt-out signal, "pending" no cookie choice
+    // yet, "declined" the visitor declined. Rows from before the cookie have
+    // neither. A pending view becomes "ok" or "declined" when that visit
+    // chooses (analytics.recordConsent).
     deviceId: v.optional(v.string()),
     idState: v.optional(
       v.union(
@@ -124,9 +127,29 @@ export default defineSchema({
         v.literal("none"),
         v.literal("invalid"),
         v.literal("optout"),
+        v.literal("pending"),
+        v.literal("declined"),
       ),
     ),
-  }).index("by_day", ["day"]),
+    // An id arrived without a granted consent and was dropped. Should never
+    // happen; the "No device id without consent" eval counts these.
+    idWithoutConsent: v.optional(v.boolean()),
+  })
+    .index("by_day", ["day"])
+    .index("by_session", ["sessionId"]),
+
+  // The cookie-consent log: one row per Accept or Decline, from
+  // POST /api/consent. deviceId is the id minted on Accept, or the one a
+  // Decline withdrew.
+  consents: defineTable({
+    ts: v.number(),
+    day: v.string(),
+    choice: v.union(v.literal("granted"), v.literal("denied")),
+    version: v.number(),
+    deviceId: v.optional(v.string()),
+    sessionId: v.optional(v.string()),
+    viewsUpdated: v.number(), // the visit's waiting page views this choice settled
+  }).index("by_ts", ["ts"]),
 
   // One row per device cookie: the distinct browsers that viewed the site.
   // Written by analytics.track; `signups` by analytics.linkSignup.
@@ -182,7 +205,8 @@ export default defineSchema({
   // (and by waitlist.submit for signup dims) so admin charts never scan raw
   // rows. dimension: "views" | "sessions" | "path" | "ref" | "utm" | "device"
   // | "signup" | "signup_utm" | "views_identified" | "device_active" |
-  // "device_new"; value is "" for the scalar dims.
+  // "device_new" | "consent_granted" | "consent_denied"; value is "" for the
+  // scalar dims.
   trafficDaily: defineTable({
     day: v.string(),
     dimension: v.string(),

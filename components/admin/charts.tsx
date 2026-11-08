@@ -35,6 +35,8 @@ export type SeriesPoint = {
   identifiedViews: number;
   devices: number; // distinct devices that viewed that day
   newDevices: number; // of those, first seen that day
+  consentGranted: number; // cookie card: Accept clicks that day
+  consentDenied: number; // and Decline clicks
 };
 
 const VIEWS = "var(--viz-views)";

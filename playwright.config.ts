@@ -8,6 +8,29 @@ import { defineConfig } from "@playwright/test";
  * E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD. Point E2E_BASE_URL elsewhere to
  * retarget.
  */
+const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:20301";
+
+/**
+ * Every spec starts with the cookie card already answered (Decline), so the
+ * card never sits over what a spec clicks. consent.spec.ts and
+ * device-cookie.spec.ts clear this to test the card and the cookies.
+ */
+const ANSWERED = {
+  cookies: [
+    {
+      name: "mypa_consent",
+      value: "v1.denied.1794000000",
+      domain: new URL(baseURL).hostname,
+      path: "/",
+      expires: -1,
+      httpOnly: false,
+      secure: false,
+      sameSite: "Lax" as const,
+    },
+  ],
+  origins: [],
+};
+
 export default defineConfig({
   testDir: "e2e",
   timeout: 45_000,
@@ -15,7 +38,8 @@ export default defineConfig({
   workers: 4,
   reporter: [["list"]],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:20301",
+    baseURL,
+    storageState: ANSWERED,
     browserName: "chromium",
     // The full Chromium build in headless mode; no separate headless shell.
     channel: "chromium",
