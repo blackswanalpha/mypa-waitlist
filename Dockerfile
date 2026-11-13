@@ -18,6 +18,9 @@ COPY . .
 # (the server-side URL is CONVEX_SERVER_URL, a runtime env — see middleware.ts).
 ARG NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210
 ENV NEXT_PUBLIC_CONVEX_URL=$NEXT_PUBLIC_CONVEX_URL
+# Public origin for robots.txt / sitemap.xml (prerendered at build time).
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 # convex/_generated/ is gitignored, so it has to come from somewhere reachable:
 #   - self-hosted local dev (docker-init.sh): already generated on the host
