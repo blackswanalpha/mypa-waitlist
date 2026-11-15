@@ -1,241 +1,58 @@
 # mypa-waitlist
 
-The MyPA launch landing page + early-access waitlist. A standalone Next.js 16
-app, visually matched to `mypa-frontend`, backed by its **own dedicated Convex
-deployment** (isolated from the product backends).
+The public sign-up page for MyPA's early testers, and the admin console that runs the tester program.
 
-Pages:
-
-- `/` — landing: hero, features, **waitlist** form (`#waitlist`), **feedback** form (`#feedback`)
-- `/contact` — contact form
-- `/admin` — admin dashboard (Convex Auth, allowlisted) to view/monitor waitlist, feedback & contact submissions live
-
-Stack: Next.js 16 · React 19 · Tailwind v4 · shadcn/ui (new-york) · Convex ·
-Convex Auth (Password) · @convex-dev/resend · react-hook-form + zod · sonner.
-
-> This box has Node + npm (no bun), so commands below use `npm`/`npx`. The repo
-> is npm-installed; swap in `bun` if you prefer.
-
-## 1. Install
-
-```bash
-cd mypa-waitlist
-npm install
-```
-
-## 2. Create the dedicated Convex project (interactive — you run this)
-
-```bash
-npx convex dev
-```
-
-- Logs you in (`npx convex login` if needed) and prompts to **create a new
-  project** — name it `mypa-waitlist`. **Do not** point it at the product's
-  `mypa-chat-sync` deployment.
-- Writes `NEXT_PUBLIC_CONVEX_URL` + `CONVEX_DEPLOYMENT` to `.env.local`, pushes
-  the schema + functions, and generates `convex/_generated/`.
-- Leave it running (it watches & redeploys on change).
-
-Then generate the Convex Auth keys (one-time):
-
-```bash
-npx @convex-dev/auth
-```
-
-This sets `JWT_PRIVATE_KEY`, `JWKS`, and `SITE_URL` on the deployment. (The
-`convex/auth.ts`, `auth.config.ts`, and `http.ts` files already exist; the CLI
-just adds the keys.)
-
-## 3. Configure deployment env
-
-```bash
-npx convex env set ADMIN_EMAILS "you@example.com"     # comma-separated allowlist
-npx convex env set RESEND_API_KEY "re_xxxxxxxx"        # from resend.com
-# optional in prod (defaults: test mode + onboarding@resend.dev sender):
-# npx convex env set RESEND_TEST_MODE "false"
-# npx convex env set RESEND_FROM "MyPA <hello@yourdomain.com>"  # must be a verified Resend domain
-# campaign delivery tracking: add a Resend webhook to {CONVEX_SITE_URL}/resend-webhook, then
-# npx convex env set RESEND_WEBHOOK_SECRET "whsec_xxxxxxxx"
-# optional: key for signed unsubscribe links (defaults to RESEND_API_KEY)
-# npx convex env set UNSUBSCRIBE_SECRET "$(openssl rand -hex 24)"
-```
-
-The admin **Email** tab shows which of these are missing.
-
-## 4. Run
-
-```bash
-npm run dev    # http://localhost:3000  (keep `npx convex dev` running too)
-```
-
-## 5. Seed the admin account
-
-Account creation is **disabled by default** (`ALLOW_ADMIN_SIGNUP` unset) so
-nobody can register an allowlisted address before you do. Bootstrap once:
-
-```bash
-npx convex env set ALLOW_ADMIN_SIGNUP "true"
-```
-
-Go to `http://localhost:3000/admin` → click **"First time? Create the admin
-account"** → sign up with an email that is in `ADMIN_EMAILS` + a password. Then
-lock sign-up again:
-
-```bash
-npx convex env remove ALLOW_ADMIN_SIGNUP
-```
-
-Sign-in keeps working with the flag unset. Only allowlisted emails can ever
-create an account or sign in.
-
-## 6. Verify end-to-end
-
-- **Waitlist** (`/#waitlist`): submit name + email → success card + toast.
-  Resubmit the same email → "already on the list". Row appears live in the admin
-  Waitlist tab. Check Resend for the confirmation + admin-notify emails.
-- **Feedback** (`/contact#feedback`): submit a message (+ optional rating) → appears in
-  the Feedback tab.
-- **Contact** (`/contact`): submit → appears in the Contact tab; click
-  **Mark handled** → flips live.
-- **Admin auth**: sign out → `/admin` shows the login. A non-allowlisted account
-  can't be created, and admin queries reject non-admins (`Unauthorized`).
-
-- **Email campaigns** (admin → Email): write a draft, check the live preview,
-  send a test, then send to the audience. Recipients, delivery, opens, clicks,
-  bounces and unsubscribes appear on the campaign as Resend reports them.
-
-> In Resend **test mode** (the default) the component **rejects** every address
-> outside `@resend.dev` (e.g. `delivered@resend.dev`) — signup confirmations and
-> admin notifications are not sent, and campaigns refuse to start. Set
-> `RESEND_TEST_MODE=false` with a verified domain for real delivery.
-
-## 6b. Whitelisting & backend sync
-
-The admin **Waitlist** tab manages launch access ("invited" status = shown as
-**Whitelisted**):
-
-- Select rows → **Whitelist selected** (or **Whitelist all pending** — loops
-  200 rows per transaction until done). **Mark pending** reverses.
-- **CSV** exports the current status filter (all columns, RFC-4180 quoted).
-- **Sync to backend** pushes whitelisted rows to the product backend's
-  `POST /api/v1/waitlist-sync/import` in 200-row batches; successful batches
-  are stamped `syncedAt` (green check in the table), so a mid-run failure never
-  loses progress. Configure once:
-
-```bash
-npx convex env set BACKEND_URL "https://backend.mypa.computer"
-npx convex env set BACKEND_SERVICE_KEY "<same value as the backend's CONVEX_SERVICE_KEY>"
-```
-
-At launch, flip `SIGNUP_WHITELIST_REQUIRED=true` on the backend — signup then
-only accepts whitelisted emails, and each signup marks its whitelist row
-claimed.
-
-One-time after upgrading to the counters schema (seeds the dashboard stats):
-
-```bash
-npx convex run counters:backfill
-```
-
-## 7. Deploy (Vercel)
-
-`convex/_generated/` is gitignored, so let Convex generate it at build time —
-set the Vercel **Build Command** to:
-
-```bash
-npx convex deploy --cmd 'npm run build'
-```
-
-This pushes the prod Convex deployment, injects the prod `NEXT_PUBLIC_CONVEX_URL`
-into the Next build, then builds. Also:
-
-- Add `CONVEX_DEPLOY_KEY` (from the Convex dashboard) to Vercel env.
-- Set prod Convex env: `ADMIN_EMAILS`, `RESEND_API_KEY`, `SITE_URL` (the Vercel
-  URL), `RESEND_TEST_MODE=false`, `RESEND_FROM` (verified domain).
-
-### 7a. Deploy (Coolify) — functions deploy separately via CI
-
-The live prod is **Coolify**, not Vercel, and its Docker build is **codegen-only**
-by design (it runs `npx convex codegen` so the Next bundle compiles against
-`api.*`, but does NOT push functions — see the `Dockerfile`). So the Coolify
-build alone will ship a frontend that references Convex functions the deployment
-doesn't have, surfacing as `Could not find public function for '<module>:<fn>'`
-(masked to a generic `Server Error` on the client).
-
-The function/schema push therefore runs as its own step in CI:
-[`.github/workflows/deploy-convex.yml`](.github/workflows/deploy-convex.yml)
-runs `npx convex deploy` on every push to `main` that touches `convex/**`.
-
-One-time setup: add the **production** deploy key as a GitHub Actions secret —
-repo → Settings → Secrets and variables → Actions → `CONVEX_DEPLOY_KEY` (generate
-it in the Convex dashboard: production deployment → Settings → Generate
-Production Deploy Key). Prod Convex env (`ADMIN_EMAILS` etc.) is set once with
-`npx convex env set …` and is not managed by the workflow.
-
-Ordering note: on a merge that changes both the frontend and `convex/`, the CI
-function deploy (~1 min) finishes well before the Coolify image build + Next
-build (several minutes), so functions land first — the safe direction. To force
-a deploy out of band (recover a failed run, reconcile drift), use the workflow's
-**Run workflow** button (`workflow_dispatch`).
-
-## 8. Docker (self-hosted, no Convex cloud)
-
-The repo also runs fully locally under docker-compose — a **self-hosted Convex
-backend** (official `ghcr.io/convex/convex-backend` image) + the Convex
-dashboard + the Next.js app, with data persisted in a named volume
-(`convex-data`). No Convex account needed.
-
-```bash
-ADMIN_EMAILS="you@example.com" ./scripts/docker-init.sh
-```
-
-The script is idempotent: it starts `backend` + `dashboard`, generates the
-deployment admin key, wires `.env.local` (`CONVEX_SELF_HOSTED_URL` /
-`CONVEX_SELF_HOSTED_ADMIN_KEY`, commenting out any `CONVEX_DEPLOYMENT`), pushes
-`convex/` functions, generates the Convex Auth `JWT_PRIVATE_KEY`/`JWKS` if
-missing, sets `SITE_URL` (+ `ADMIN_EMAILS` / `RESEND_API_KEY` if exported), and
-builds + starts `web`.
-
-| URL | What |
+| | |
 |---|---|
-| http://127.0.0.1:4578 | the app (`WEB_PORT`) |
-| http://127.0.0.1:3210 | Convex API (`CONVEX_PORT`) |
-| http://127.0.0.1:3211 | Convex HTTP actions (`CONVEX_SITE_PORT`) |
-| http://127.0.0.1:6791 | Convex dashboard — log in with the admin key the script prints (`CONVEX_DASHBOARD_PORT`) |
+| Live site | https://waitlist.heymypa.ai |
+| Admin console | https://waitlist.heymypa.ai/admin |
+| Install guide testers receive | https://waitlist.heymypa.ai/testers/guide |
+| Old addresses | `waitlist.mypa.computer` and `mypa.computer` redirect to the new domain |
 
-Day-to-day dev with hot reload — containerised backend, host app:
+## What it does
+
+1. A visitor fills in the form on the landing page: name, email, optional phone, and which phone they use.
+2. They get a "you're on the list" email. You get a "new tester signup" email.
+3. In the admin console you approve them. Approval emails them the install guide for their phone, with the Firebase invite link that installs the test build.
+4. When the tester slots are full, you close signups. The form is replaced by a "spots filled" card.
+
+## Guides
+
+| I want to | Read |
+|---|---|
+| Approve testers, send emails, read the numbers | [Admin guide](docs/admin-guide.md) |
+| Run the site on my computer and make changes | [Run it locally](docs/run-locally.md) |
+| Ship a change, change a setting, or move the domain | [Production](docs/deploy.md) |
+| Understand how the pieces fit together | [How it works](docs/how-it-works.md) |
+
+## Quick start for developers
 
 ```bash
-SKIP_WEB=1 ./scripts/docker-init.sh   # or: docker compose up -d backend dashboard
-npm run dev
+npm ci
+npx convex dev        # first run asks you to log in and pick the mypa-waitlist project
+npm run dev           # in a second terminal → http://localhost:3000
 ```
 
-Notes:
+The full walkthrough, including creating an admin login and running the tests, is in [Run it locally](docs/run-locally.md).
 
-- `npx convex ...` CLI commands (env set, logs, dashboard data) work as usual —
-  they target the docker backend via the `CONVEX_SELF_HOSTED_*` vars in
-  `.env.local`.
-- After changing `convex/` functions with the `web` container in use, re-push
-  with `npx convex deploy -y` (or just re-run the init script). Rebuild `web`
-  (`docker compose up -d --build web`) only when app code changes.
-- `NEXT_PUBLIC_CONVEX_URL` is baked into the client bundle at image build time
-  (browser-facing URL); the Next server reaches the backend via
-  `CONVEX_SERVER_URL=http://backend:3210` (runtime env, see `middleware.ts`).
-- Switching from the previous `npx convex dev` anonymous-local setup starts
-  with a **fresh database** — the old state stays in
-  `~/.convex/anonymous-convex-backend-state/` (restore the commented
-  `CONVEX_DEPLOYMENT` line in `.env.local` to boot it again).
-- Pin images with `CONVEX_TAG=<rev>` (backend + dashboard publish matching
-  tags); default is `latest`.
+## Where things are
 
-## Architecture notes
+| Folder | What is in it |
+|---|---|
+| `app/` | Pages: landing (`page.tsx`), `admin/`, `testers/guide/`, and the two API routes `api/waitlist` (sign-up) and `api/consent` (cookie choice) |
+| `components/` | Landing page pieces. `components/admin/` holds one file per admin tab |
+| `convex/` | The database tables (`schema.ts`) and every server function. `convex/emails/` holds the email templates |
+| `convex/_generated/` | Generated by Convex. Committed on purpose so the production build needs no Convex key. Never edit by hand |
+| `e2e/` | Playwright browser tests |
+| `public/guide/` | The screenshots inside the install guide email and page |
+| `scripts/` | Helpers: Docker setup, image builders, the old-waitlist import |
 
-- **Public** mutations (`convex/{waitlist,feedback,contact}.ts` → `submit`)
-  have no auth gate; they validate server-side and schedule emails via
-  `ctx.scheduler.runAfter(0, internal.emails.send.*)` so mail only sends on a
-  committed transaction.
-- **Admin** access is enforced by `requireAdmin` (`convex/admin.ts`) on every
-  admin query/mutation — signed in **and** email in `ADMIN_EMAILS`. The
-  middleware only manages the auth cookie; it is not the security boundary.
-- Design tokens (`app/globals.css`), `cn()` (`lib/utils.ts`), and the
-  `components/ui/*` primitives are mirrored from `mypa-frontend`.
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Site with hot reload on port 3000 |
+| `npx convex dev` | Pushes `convex/` to your dev database and keeps watching for changes |
+| `npm run build` | Production build. Also type-checks |
+| `npm run lint` | ESLint |
+| `npx playwright test` | Browser tests. See [Run it locally § Run the tests](docs/run-locally.md#6-run-the-tests) |
