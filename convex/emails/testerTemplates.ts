@@ -13,7 +13,7 @@ import { CONTACT_EMAIL } from "./templates";
 export type TesterDevice = "samsung" | "android" | "iphone";
 
 /** Where the guide images and the hosted guide live. Deliberately not SITE_URL. */
-export const DEFAULT_PUBLIC_ORIGIN = "https://waitlist.mypa.computer";
+export const DEFAULT_PUBLIC_ORIGIN = "https://waitlist.heymypa.ai";
 
 const INK = "#0F172A";
 const MUTED = "#475569";
@@ -238,7 +238,7 @@ export function testerReceivedHtml(opts: {
      ${lead}
      ${iphone}
      <p style="margin:0;color:${MUTED};">Thanks for wanting to try MyPA early.<br/>The MyPA team</p>`,
-    "You're receiving this because you joined the MyPA tester list at waitlist.mypa.computer.",
+    "You're receiving this because you joined the MyPA tester list at waitlist.heymypa.ai.",
   );
 }
 
