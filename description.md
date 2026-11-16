@@ -1,1 +1,1 @@
-MyPA launch landing page and early-access waitlist. A standalone Next.js 16 + Convex app with waitlist, feedback, and contact forms, plus an allowlisted admin dashboard to monitor submissions live. Isolated Convex backend, Convex Auth, Resend email, shadcn/ui, GSAP animations.
+MyPA's early-tester sign-up page (waitlist.heymypa.ai) and the admin console that runs the tester program: approve testers and email their install guide, open or close signups, send email campaigns, and see where signups come from. Next.js 16 and its own Convex database, with Resend for email.
